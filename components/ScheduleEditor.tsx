@@ -15,6 +15,8 @@ interface Props {
 const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, schedules, setSchedules, holidays }) => {
   const [activeDate, setActiveDate] = useState(new Date().toISOString().split('T')[0]);
   const [activeEnv, setActiveEnv] = useState(environments[0]?.id || '');
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const currentDaySchedule = schedules.find(s => s.date === activeDate) || { date: activeDate, assignments: [] };
   
@@ -50,6 +52,18 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
     const newDay = { ...currentDaySchedule, assignments: newAssignments };
     const filteredSchedules = schedules.filter(s => s.date !== activeDate);
     setSchedules([...filteredSchedules, newDay]);
+    setShowSuccess(false); // Reseta o estado de confirmação ao alterar
+  };
+
+  const handleConfirm = () => {
+    setIsConfirming(true);
+    // Simula um pequeno delay para feedback de processamento
+    setTimeout(() => {
+      setIsConfirming(false);
+      setShowSuccess(true);
+      // Opcional: Auto-esconde após 3 segundos
+      setTimeout(() => setShowSuccess(false), 3000);
+    }, 600);
   };
 
   const getCategoryCount = (catId: string) => {
@@ -64,7 +78,7 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 h-[75vh]">
-      <div className="lg:col-span-3 bg-slate-900 p-8 rounded-3xl shadow-2xl border border-slate-800 flex flex-col overflow-hidden">
+      <div className="lg:col-span-3 bg-slate-900 p-8 rounded-3xl shadow-2xl border border-slate-800 flex flex-col overflow-hidden relative">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-6 border-b border-slate-800 pb-6">
           <div className="space-y-1">
             <h3 className="font-black text-2xl flex items-center space-x-3 text-slate-100 tracking-tight">
@@ -85,7 +99,7 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
         </div>
 
         <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pb-20">
             {categories.map(cat => (
               <div key={cat.id} className="p-6 bg-slate-800/40 rounded-3xl border border-slate-800/80 shadow-sm hover:border-slate-700 transition-colors">
                 <div className="flex justify-between items-center mb-5">
@@ -109,6 +123,39 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Botão Confirmar fixo no rodapé do editor */}
+        <div className="absolute bottom-0 left-0 w-full p-6 bg-slate-900/90 backdrop-blur-sm border-t border-slate-800 flex justify-end items-center space-x-4">
+          {showSuccess && (
+            <span className="text-emerald-400 text-xs font-bold flex items-center animate-in fade-in slide-in-from-right-2">
+              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+              Escala Confirmada para este dia!
+            </span>
+          )}
+          <button 
+            onClick={handleConfirm}
+            disabled={isConfirming}
+            className={`px-8 py-3 rounded-2xl text-sm font-black uppercase tracking-widest transition-all shadow-xl flex items-center space-x-2 ${
+              showSuccess 
+                ? 'bg-emerald-600 text-white cursor-default' 
+                : 'bg-indigo-600 hover:bg-indigo-700 text-white active:scale-95 shadow-indigo-500/20'
+            }`}
+          >
+            {isConfirming ? (
+              <>
+                <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                <span>Confirmando...</span>
+              </>
+            ) : showSuccess ? (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                <span>Confirmado</span>
+              </>
+            ) : (
+              <span>Confirmar Escala</span>
+            )}
+          </button>
         </div>
       </div>
 
