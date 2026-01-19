@@ -8,7 +8,8 @@ import AdminLogin from './components/AdminLogin';
 const safeParse = (key: string, defaultValue: any) => {
   try {
     const item = localStorage.getItem(key);
-    return item && item !== "undefined" ? JSON.parse(item) : defaultValue;
+    if (!item || item === "undefined" || item === "null") return defaultValue;
+    return JSON.parse(item);
   } catch (e) {
     console.error(`Error parsing ${key}:`, e);
     return defaultValue;
@@ -19,12 +20,21 @@ const App: React.FC = () => {
   const [view, setView] = useState<'public' | 'admin'>('public');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   
-  const [categories, setCategories] = useState<Category[]>(() => safeParse('categories', []));
-  const [environments, setEnvironments] = useState<Environment[]>(() => safeParse('environments', [
-    { id: 'env-1', name: 'Ambiente A' },
-    { id: 'env-2', name: 'Ambiente B' }
+  // Dados iniciais para o primeiro acesso
+  const [categories, setCategories] = useState<Category[]>(() => safeParse('categories', [
+    { id: 'cat-1', name: 'Técnico' },
+    { id: 'cat-2', name: 'Atendente' }
   ]));
-  const [employees, setEmployees] = useState<Employee[]>(() => safeParse('employees', []));
+  
+  const [environments, setEnvironments] = useState<Environment[]>(() => safeParse('environments', [
+    { id: 'Ambiente A', name: 'Ambiente A' },
+    { id: 'Ambiente B', name: 'Ambiente B' }
+  ]));
+
+  const [employees, setEmployees] = useState<Employee[]>(() => safeParse('employees', [
+    { id: '1', name: 'Colaborador Exemplo', categoryId: 'cat-1', environmentId: 'Ambiente A', status: 'Ativo', consecutiveSpecialDaysOff: 0, totalSpecialDaysWorked: 0 }
+  ]));
+
   const [holidays, setHolidays] = useState<Holiday[]>(() => safeParse('holidays', []));
   const [schedules, setSchedules] = useState<DaySchedule[]>(() => safeParse('schedules', []));
 
@@ -73,7 +83,7 @@ const App: React.FC = () => {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto p-4 md:p-8 animate-in fade-in slide-in-from-bottom-2 duration-700">
+      <main className="max-w-7xl mx-auto p-4 md:p-8">
         {view === 'public' ? (
           <PublicView 
             employees={employees} 
