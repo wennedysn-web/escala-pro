@@ -25,7 +25,8 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
   const [selectedEnvironments, setSelectedEnvironments] = useState<string[]>([]);
 
   const holidayInfo = holidays.find(h => h.date === activeDate);
-  const isSpecial = isSunday(activeDate) || !!holidayInfo;
+  const isDaySunday = isSunday(activeDate);
+  const isSpecial = isDaySunday || !!holidayInfo;
 
   const currentDaySchedule = schedules.find(s => s.date === activeDate) || { date: activeDate, assignments: [] };
   const currentEnvAssigned = currentDaySchedule.assignments.find(a => a.environmentId === activeEnv)?.employeeIds || [];
@@ -43,7 +44,7 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
       } else {
         await supabase.from('schedules').upsert({
           date: activeDate,
-          is_sunday: isSunday(activeDate),
+          is_sunday: isDaySunday,
           is_holiday: !!holidayInfo,
           holiday_name: holidayInfo?.name || null
         });
@@ -101,7 +102,7 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
           <div className="space-y-1">
             <h3 className="font-black text-xl text-slate-100">{formatDateDisplay(activeDate)}</h3>
             <div className="flex flex-wrap gap-2">
-              {isSunday(activeDate) && <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-1 rounded">DOMINGO</span>}
+              {isDaySunday && <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-1 rounded">DOMINGO</span>}
               {holidayInfo && <span className="text-[10px] bg-rose-500/20 text-rose-400 px-2 py-1 rounded uppercase">{holidayInfo.name}</span>}
               {!isSpecial && <span className="text-[10px] bg-slate-700 text-slate-400 px-2 py-1 rounded uppercase font-bold tracking-widest">Dia Comum</span>}
             </div>
@@ -219,12 +220,16 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
                       <span className="font-black text-sm truncate pr-2">{e.name}</span>
                     </div>
                     <div className="flex gap-2">
-                      <div className={`flex items-center px-1.5 py-0.5 rounded-lg border text-[9px] font-black ${e.consecutiveSundaysOff >= 10 ? 'bg-amber-500/10 border-amber-500/30 text-amber-500' : 'bg-slate-900/40 border-slate-700 text-slate-500'}`}>
-                        <span className="opacity-50 mr-1">D:</span> {formatCounter(e.consecutiveSundaysOff)}
-                      </div>
-                      <div className={`flex items-center px-1.5 py-0.5 rounded-lg border text-[9px] font-black ${e.consecutiveHolidaysOff >= 10 ? 'bg-rose-500/10 border-rose-500/30 text-rose-500' : 'bg-slate-900/40 border-slate-700 text-slate-500'}`}>
-                        <span className="opacity-50 mr-1">F:</span> {formatCounter(e.consecutiveHolidaysOff)}
-                      </div>
+                      {isDaySunday && (
+                        <div className={`flex items-center px-1.5 py-0.5 rounded-lg border text-[9px] font-black ${e.consecutiveSundaysOff >= 10 ? 'bg-amber-500/10 border-amber-500/30 text-amber-500' : 'bg-slate-900/40 border-slate-700 text-slate-500'}`}>
+                          <span className="opacity-50 mr-1">D:</span> {formatCounter(e.consecutiveSundaysOff)}
+                        </div>
+                      )}
+                      {!!holidayInfo && (
+                        <div className={`flex items-center px-1.5 py-0.5 rounded-lg border text-[9px] font-black ${e.consecutiveHolidaysOff >= 10 ? 'bg-rose-500/10 border-rose-500/30 text-rose-500' : 'bg-slate-900/40 border-slate-700 text-slate-500'}`}>
+                          <span className="opacity-50 mr-1">F:</span> {formatCounter(e.consecutiveHolidaysOff)}
+                        </div>
+                      )}
                     </div>
                   </button>
                 );
