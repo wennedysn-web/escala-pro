@@ -83,8 +83,8 @@ const AdminView: React.FC<Props> = (props) => {
     }
   };
 
-  const handleSaveEmployee = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveEmployee = async (e: React.FormEvent, closeAfter: boolean = true) => {
+    if (e) e.preventDefault();
     if (!editingEmployee?.name || !editingEmployee?.categoryId || !editingEmployee?.environmentId) {
       alert("Preencha todos os campos obrigatórios.");
       return;
@@ -109,8 +109,21 @@ const AdminView: React.FC<Props> = (props) => {
         }]);
       }
       await props.refreshData();
-      setShowEmployeeModal(false);
-      setEditingEmployee(null);
+      
+      if (closeAfter) {
+        setShowEmployeeModal(false);
+        setEditingEmployee(null);
+      } else {
+        // Reseta apenas o nome para facilitar criação em massa
+        setEditingEmployee({
+          ...editingEmployee,
+          name: '',
+          id: undefined // Garante que o próximo será um Insert
+        });
+        // Opcional: focar o input de nome novamente
+        const nameInput = document.getElementById('emp-name') as HTMLInputElement;
+        if (nameInput) nameInput.focus();
+      }
     } catch (err) {
       alert("Erro ao salvar funcionário.");
     }
@@ -321,10 +334,10 @@ const AdminView: React.FC<Props> = (props) => {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in zoom-in duration-200">
           <div className="bg-slate-900 w-full max-w-lg rounded-3xl border border-slate-800 p-8 shadow-2xl">
             <h3 className="text-xl font-black mb-6 text-slate-100">{editingEmployee?.id ? 'Editar' : 'Novo'} Colaborador</h3>
-            <form onSubmit={handleSaveEmployee} className="space-y-4">
+            <form onSubmit={(e) => handleSaveEmployee(e, true)} className="space-y-4">
               <div>
                 <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Nome Completo</label>
-                <input required value={editingEmployee?.name || ''} onChange={e => setEditingEmployee({...editingEmployee, name: e.target.value})} placeholder="Ex: Maria Oliveira" className="w-full p-4 bg-slate-800 border border-slate-700 rounded-2xl text-white outline-none focus:ring-2 focus:ring-indigo-500" />
+                <input id="emp-name" required value={editingEmployee?.name || ''} onChange={e => setEditingEmployee({...editingEmployee, name: e.target.value})} placeholder="Ex: Maria Oliveira" className="w-full p-4 bg-slate-800 border border-slate-700 rounded-2xl text-white outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -357,8 +370,11 @@ const AdminView: React.FC<Props> = (props) => {
                 </select>
               </div>
 
-              <div className="pt-6 flex space-x-3">
+              <div className="pt-6 flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3">
                 <button type="button" onClick={() => setShowEmployeeModal(false)} className="flex-1 py-4 bg-slate-800 text-slate-400 font-bold rounded-2xl hover:bg-slate-700 transition">Cancelar</button>
+                {!editingEmployee?.id && (
+                  <button type="button" onClick={(e) => handleSaveEmployee(e, false)} className="flex-1 py-4 bg-slate-700 border border-slate-600 text-slate-100 font-bold rounded-2xl hover:bg-slate-600 transition">Salvar e Novo</button>
+                )}
                 <button type="submit" className="flex-1 py-4 bg-indigo-600 text-white font-black text-sm uppercase tracking-widest rounded-2xl shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition">Salvar</button>
               </div>
             </form>

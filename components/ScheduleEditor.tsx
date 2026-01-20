@@ -20,6 +20,7 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
   const [activeEnv, setActiveEnv] = useState(environments[0]?.id || '');
   const [isConfirming, setIsConfirming] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
   const currentDaySchedule = schedules.find(s => s.date === activeDate) || { date: activeDate, assignments: [] };
   const currentEnvAssigned = currentDaySchedule.assignments.find(a => a.environmentId === activeEnv)?.employeeIds || [];
@@ -75,6 +76,12 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
   const holidayInfo = holidays.find(h => h.date === activeDate);
   const assignedIds = currentDaySchedule.assignments.flatMap(a => a.employeeIds);
 
+  const handleToggleCategoryFilter = (catId: string) => {
+    setSelectedCategories(prev => 
+      prev.includes(catId) ? prev.filter(id => id !== catId) : [...prev, catId]
+    );
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 h-[75vh]">
       <div className="lg:col-span-3 bg-slate-900 p-8 rounded-3xl border border-slate-800 flex flex-col overflow-hidden relative">
@@ -127,10 +134,40 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
       </div>
 
       <div className="lg:col-span-1 bg-slate-900 p-6 rounded-3xl border border-slate-800 flex flex-col overflow-hidden">
-        <h3 className="text-slate-100 font-black text-xs uppercase tracking-widest mb-6 border-b border-slate-800 pb-4">Disponíveis</h3>
+        <h3 className="text-slate-100 font-black text-xs uppercase tracking-widest mb-4 border-b border-slate-800 pb-4">Disponíveis</h3>
+        
+        {/* Filtro por Categorias */}
+        <div className="mb-4">
+          <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-2">Filtrar Categoria</p>
+          <div className="flex flex-wrap gap-1.5">
+            {categories.map(cat => (
+              <button
+                key={cat.id}
+                onClick={() => handleToggleCategoryFilter(cat.id)}
+                className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase transition-all border ${
+                  selectedCategories.includes(cat.id)
+                    ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg shadow-indigo-600/20'
+                    : 'bg-slate-800 border-slate-700 text-slate-500 hover:border-slate-500'
+                }`}
+              >
+                {cat.name}
+              </button>
+            ))}
+            {selectedCategories.length > 0 && (
+              <button 
+                onClick={() => setSelectedCategories([])}
+                className="px-2 py-1 rounded-lg text-[8px] font-black uppercase bg-slate-800 border border-slate-700 text-rose-400 hover:text-rose-300"
+              >
+                Limpar
+              </button>
+            )}
+          </div>
+        </div>
+
         <div className="flex-grow overflow-y-auto space-y-2 pr-1">
           {employees
             .filter(e => e.status === 'Ativo')
+            .filter(e => selectedCategories.length === 0 || selectedCategories.includes(e.categoryId))
             .map(e => {
               const isUsedHere = currentEnvAssigned.includes(e.id);
               const isUsedElsewhere = assignedIds.includes(e.id) && !isUsedHere;
@@ -153,6 +190,10 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
                 </button>
               );
             })}
+          
+          {employees.filter(e => e.status === 'Ativo' && (selectedCategories.length === 0 || selectedCategories.includes(e.categoryId))).length === 0 && (
+            <p className="text-[10px] text-slate-600 italic text-center py-4">Nenhum disponível</p>
+          )}
         </div>
       </div>
     </div>
