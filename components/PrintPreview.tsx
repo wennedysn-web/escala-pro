@@ -102,6 +102,8 @@ const PrintPreview: React.FC<Props> = ({ employees, schedules, environments, hol
             body {
               background: white !important;
               color: black !important;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
             }
             .print-area {
               width: 100% !important;
@@ -133,6 +135,13 @@ const PrintPreview: React.FC<Props> = ({ employees, schedules, environments, hol
           }
           .row-special {
             background-color: #f8fafc;
+          }
+          .category-header {
+            background-color: #e2e8f0 !important;
+            border-bottom: 1px solid #94a3b8;
+            padding: 2px 4px;
+            margin-bottom: 4px;
+            display: block;
           }
         `}</style>
 
@@ -185,9 +194,9 @@ const PrintPreview: React.FC<Props> = ({ employees, schedules, environments, hol
                             const catEmployees = envEmployees.filter(emp => emp.categoryId === cat.id);
                             if (catEmployees.length === 0) return null;
                             return (
-                              <div key={cat.id} className="mb-1 last:mb-0">
-                                <span className="text-[7px] font-black uppercase block leading-none mb-0.5">{cat.name}</span>
-                                <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                              <div key={cat.id} className="mb-2 last:mb-0">
+                                <span className="category-header text-[7px] font-black uppercase leading-none">{cat.name}</span>
+                                <div className="flex flex-wrap gap-x-2 gap-y-0.5 px-1">
                                   {catEmployees.map(e => (
                                     <span key={e.id} className="font-bold text-[9px]">{e.name}</span>
                                   ))}
