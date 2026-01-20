@@ -1,50 +1,82 @@
 
 import React, { useState, useEffect } from 'react';
-import { Category, Environment, Employee, Holiday, DaySchedule } from './types';
+import { Category, Environment, Employee, Holiday, DaySchedule, ScheduleAssignment } from './types';
 import PublicView from './components/PublicView';
 import AdminView from './components/AdminView';
 import AdminLogin from './components/AdminLogin';
-
-const safeParse = (key: string, defaultValue: any) => {
-  try {
-    const item = localStorage.getItem(key);
-    if (!item || item === "undefined" || item === "null") return defaultValue;
-    return JSON.parse(item);
-  } catch (e) {
-    console.error(`Error parsing ${key}:`, e);
-    return defaultValue;
-  }
-};
+import { supabase } from './lib/supabase';
 
 const App: React.FC = () => {
   const [view, setView] = useState<'public' | 'admin'>('public');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loading, setLoading] = useState(true);
   
-  // Dados iniciais para o primeiro acesso
-  const [categories, setCategories] = useState<Category[]>(() => safeParse('categories', [
-    { id: 'cat-1', name: 'Técnico' },
-    { id: 'cat-2', name: 'Atendente' }
-  ]));
-  
-  const [environments, setEnvironments] = useState<Environment[]>(() => safeParse('environments', [
-    { id: 'Ambiente A', name: 'Ambiente A' },
-    { id: 'Ambiente B', name: 'Ambiente B' }
-  ]));
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [environments, setEnvironments] = useState<Environment[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [schedules, setSchedules] = useState<DaySchedule[]>([]);
 
-  const [employees, setEmployees] = useState<Employee[]>(() => safeParse('employees', [
-    { id: '1', name: 'Colaborador Exemplo', categoryId: 'cat-1', environmentId: 'Ambiente A', status: 'Ativo', consecutiveSpecialDaysOff: 0, totalSpecialDaysWorked: 0 }
-  ]));
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [cats, envs, emps, hols, schs, assigns] = await Promise.all([
+        supabase.from('categories').select('*'),
+        supabase.from('environments').select('*'),
+        supabase.from('employees').select('*'),
+        supabase.from('holidays').select('*'),
+        supabase.from('schedules').select('*'),
+        supabase.from('assignments').select('*')
+      ]);
 
-  const [holidays, setHolidays] = useState<Holiday[]>(() => safeParse('holidays', []));
-  const [schedules, setSchedules] = useState<DaySchedule[]>(() => safeParse('schedules', []));
+      if (cats.data) setCategories(cats.data);
+      if (envs.data) setEnvironments(envs.data);
+      if (emps.data) setEmployees(emps.data.map(e => ({
+        ...e,
+        categoryId: e.category_id,
+        environmentId: e.environment_id,
+        lastSpecialDayWorked: e.last_special_day,
+        consecutiveSpecialDaysOff: e.consecutive_days_off,
+        totalSpecialDaysWorked: e.total_special_days
+      })));
+      if (hols.data) setHolidays(hols.data);
+      
+      // Reconstruir o objeto DaySchedule a partir das tabelas schedules e assignments
+      if (schs.data && assigns.data) {
+        const builtSchedules: DaySchedule[] = schs.data.map(s => {
+          const dayAssigns = assigns.data.filter(a => a.date === s.date);
+          const envGrouped: Record<string, string[]> = {};
+          
+          dayAssigns.forEach(a => {
+            if (!envGrouped[a.environment_id]) envGrouped[a.environment_id] = [];
+            envGrouped[a.environment_id].push(a.employee_id);
+          });
+
+          const assignments: ScheduleAssignment[] = Object.keys(envGrouped).map(envId => ({
+            environmentId: envId,
+            employeeIds: envGrouped[envId]
+          }));
+
+          return {
+            date: s.date,
+            isSunday: s.is_sunday,
+            isHoliday: s.is_holiday,
+            holidayName: s.holiday_name,
+            assignments
+          };
+        });
+        setSchedules(builtSchedules);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar dados do Supabase:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    localStorage.setItem('categories', JSON.stringify(categories));
-    localStorage.setItem('environments', JSON.stringify(environments));
-    localStorage.setItem('employees', JSON.stringify(employees));
-    localStorage.setItem('holidays', JSON.stringify(holidays));
-    localStorage.setItem('schedules', JSON.stringify(schedules));
-  }, [categories, environments, employees, holidays, schedules]);
+    fetchData();
+  }, []);
 
   const handleLogin = (user: string, pass: string) => {
     if (user === 'admin' && pass === 'tododia') {
@@ -54,6 +86,17 @@ const App: React.FC = () => {
     }
     return false;
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-slate-400 font-bold animate-pulse text-xs uppercase tracking-widest">Sincronizando com Supabase...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 font-sans text-slate-100 selection:bg-indigo-500/30">
@@ -101,13 +144,14 @@ const App: React.FC = () => {
               employees={employees} setEmployees={setEmployees}
               holidays={holidays} setHolidays={setHolidays}
               schedules={schedules} setSchedules={setSchedules}
+              refreshData={fetchData}
             />
           )
         )}
       </main>
       
       <footer className="mt-20 border-t border-slate-900 py-10 text-center">
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-700">EscalaPro Management System &bull; &copy; 2024</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-700">EscalaPro & Supabase Cloud &bull; &copy; 2024</p>
       </footer>
     </div>
   );
