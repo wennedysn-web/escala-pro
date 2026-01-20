@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Category, Environment, Employee, Holiday, DaySchedule, EmployeeStatus } from '../types';
 import ScheduleEditor from './ScheduleEditor';
+import PrintPreview from './PrintPreview';
 import { generateSchedule } from '../services/schedulerEngine';
 import { recalculateAllEmployeeCounters } from '../services/counterService';
 import { supabase } from '../lib/supabase';
@@ -16,7 +17,7 @@ interface Props {
 }
 
 const AdminView: React.FC<Props> = (props) => {
-  const [tab, setTab] = useState<'general' | 'employees' | 'schedule'>('general');
+  const [tab, setTab] = useState<'general' | 'employees' | 'schedule' | 'print'>('general');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
   const [showEmployeeModal, setShowEmployeeModal] = useState(false);
@@ -115,12 +116,21 @@ const AdminView: React.FC<Props> = (props) => {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 border-b border-slate-800">
-        <div className="flex space-x-6 pb-1">
-          {['general', 'employees', 'schedule'].map((t) => (
-            <button key={t} onClick={() => setTab(t as any)} className={`pb-3 text-sm font-bold transition-all relative ${tab === t ? 'text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}>
-              {t === 'general' ? 'Config. Gerais' : t === 'employees' ? 'Equipe' : 'Gerenciar Escala'}
-              {tab === t && <span className="absolute bottom-[-1px] left-0 w-full h-0.5 bg-indigo-400"></span>}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 border-b border-slate-800 print:hidden">
+        <div className="flex space-x-6 pb-1 overflow-x-auto">
+          {[
+            { id: 'general', label: 'Config. Gerais' },
+            { id: 'employees', label: 'Equipe' },
+            { id: 'schedule', label: 'Gerenciar Escala' },
+            { id: 'print', label: 'Impressão' }
+          ].map((t) => (
+            <button 
+              key={t.id} 
+              onClick={() => setTab(t.id as any)} 
+              className={`pb-3 text-sm font-bold transition-all relative whitespace-nowrap ${tab === t.id ? 'text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
+            >
+              {t.label}
+              {tab === t.id && <span className="absolute bottom-[-1px] left-0 w-full h-0.5 bg-indigo-400"></span>}
             </button>
           ))}
         </div>
@@ -244,6 +254,16 @@ const AdminView: React.FC<Props> = (props) => {
         <ScheduleEditor 
           employees={props.employees} categories={props.categories} environments={props.environments}
           schedules={props.schedules} setSchedules={props.setSchedules} holidays={props.holidays} refreshData={props.refreshData}
+        />
+      )}
+
+      {tab === 'print' && (
+        <PrintPreview 
+          employees={props.employees}
+          schedules={props.schedules}
+          environments={props.environments}
+          holidays={props.holidays}
+          categories={props.categories}
         />
       )}
 

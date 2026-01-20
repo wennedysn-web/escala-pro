@@ -1,14 +1,20 @@
 
 import { supabase } from '../lib/supabase';
-import { Employee, Holiday } from '../types';
+import { Employee, Holiday, Environment } from '../types';
 
 /**
  * Função de Auditoria: Sincroniza metadados de feriados e reconstrói os contadores 
  * baseando-se no histórico real de assignments e no estado atual dos feriados.
+ * 
+ * CORREÇÃO: Um dia (Domingo/Feriado) só entra para o cálculo de contadores se 
+ * TODOS os ambientes possuírem registros sincronizados para aquela data.
  */
 export const recalculateAllEmployeeCounters = async (employees: Employee[], holidays: Holiday[]) => {
-  // 1. Sincronizar a tabela de 'schedules' com os 'holidays' atuais
-  // Isso limpa feriados excluídos ou atualiza novos feriados que foram inseridos manualmente
+  // 1. Buscar ambientes para saber o total necessário para considerar um dia "completo"
+  const { data: envsData } = await supabase.from('environments').select('id');
+  const totalEnvCount = envsData?.length || 0;
+
+  // 2. Sincronizar a tabela de 'schedules' com os 'holidays' atuais
   const { data: currentSchedules, error: schErr } = await supabase
     .from('schedules')
     .select('*');
@@ -21,7 +27,6 @@ export const recalculateAllEmployeeCounters = async (employees: Employee[], holi
       const isSundayDate = new Date(sch.date + 'T00:00:00').getDay() === 0;
       const shouldBeHoliday = !!holidayName;
 
-      // Se o estado no banco está diferente do estado real (feriados deletados ou novos)
       if (sch.is_holiday !== shouldBeHoliday || sch.holiday_name !== (holidayName || null) || sch.is_sunday !== isSundayDate) {
         await supabase.from('schedules').update({
           is_holiday: shouldBeHoliday,
@@ -32,35 +37,37 @@ export const recalculateAllEmployeeCounters = async (employees: Employee[], holi
     }
   }
 
-  // 2. Buscar TODAS as escalas atualizadas para o recálculo de contadores
+  // 3. Buscar TODAS as escalas atualizadas
   const { data: allSchedules, error: schError } = await supabase
     .from('schedules')
     .select('date, is_sunday, is_holiday')
     .order('date', { ascending: true });
 
   if (schError || !allSchedules || allSchedules.length === 0) {
-    console.error("Erro ao buscar histórico de escalas ou banco vazio");
     return;
   }
 
-  // Determinamos o "Ano de Referência"
+  // 4. Buscar TODAS as atribuições e mapear quais ambientes estão "finalizados" por data
+  const { data: allAssignments, error: assError } = await supabase
+    .from('assignments')
+    .select('date, employee_id, environment_id');
+
+  if (assError || !allAssignments) {
+    return;
+  }
+
+  // Mapeia data -> Set de IDs de ambientes que possuem escala
+  const envsByDate = new Map<string, Set<string>>();
+  allAssignments.forEach(a => {
+    if (!envsByDate.has(a.date)) envsByDate.set(a.date, new Set());
+    envsByDate.get(a.date)?.add(a.environment_id);
+  });
+
   const systemYear = new Date().getFullYear();
   const latestScheduleDate = allSchedules[allSchedules.length - 1].date;
   const latestScheduleYear = new Date(latestScheduleDate + 'T00:00:00').getFullYear();
   const activeYear = Math.max(systemYear, latestScheduleYear);
   const activeYearStr = activeYear.toString();
-
-  // 3. Buscar TODAS as atribuições (assignments)
-  const { data: allAssignments, error: assError } = await supabase
-    .from('assignments')
-    .select('date, employee_id');
-
-  if (assError || !allAssignments) {
-    console.error("Erro ao buscar atribuições para recálculo");
-    return;
-  }
-
-  const mountedDates = new Set(allAssignments.map(a => a.date));
 
   const updatedEmployees = employees.map(emp => {
     let lastSun: string | null = null;
@@ -82,7 +89,10 @@ export const recalculateAllEmployeeCounters = async (employees: Employee[], holi
     );
 
     allSchedules.forEach(sch => {
-      if (!mountedDates.has(sch.date)) return;
+      // REGRA DE OURO: Só processa a data para o funcionário se TODOS os ambientes do sistema
+      // tiverem ao menos um registro sincronizado nessa data.
+      const envsFinalized = envsByDate.get(sch.date)?.size || 0;
+      if (envsFinalized < totalEnvCount) return;
 
       const worked = empAssigns.has(sch.date);
       const schYearStr = sch.date.split('-')[0];
@@ -96,11 +106,8 @@ export const recalculateAllEmployeeCounters = async (employees: Employee[], holi
           if (isTargetYear) sunCurrentYear++;
           hasWorkedSun = true;
         } else {
-          if (hasWorkedSun) {
-            sunOff++;
-          } else {
-            sunOff = 99;
-          }
+          if (hasWorkedSun) sunOff++;
+          else sunOff = 99;
         }
       }
 
@@ -112,11 +119,8 @@ export const recalculateAllEmployeeCounters = async (employees: Employee[], holi
           if (isTargetYear) holCurrentYear++;
           hasWorkedHol = true;
         } else {
-          if (hasWorkedHol) {
-            holOff++;
-          } else {
-            holOff = 99;
-          }
+          if (hasWorkedHol) holOff++;
+          else holOff = 99;
         }
       }
     });
@@ -134,7 +138,6 @@ export const recalculateAllEmployeeCounters = async (employees: Employee[], holi
     };
   });
 
-  // 4. Persistência em lote
   for (const emp of updatedEmployees) {
     await supabase.from('employees').update({
       last_sunday_worked: emp.lastSundayWorked,
