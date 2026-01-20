@@ -59,6 +59,9 @@ const ReportsOverview: React.FC<Props> = ({ employees, environments, categories,
               display: none !important;
             }
           }
+          .print-area * {
+            color: black !important;
+          }
           .report-table {
             width: 100%;
             border-collapse: collapse;
@@ -89,7 +92,7 @@ const ReportsOverview: React.FC<Props> = ({ employees, environments, categories,
             font-size: 10px;
             text-transform: uppercase;
             font-weight: 700;
-            color: #4b5563;
+            color: #000 !important;
           }
           .status-badge {
             font-size: 9px;

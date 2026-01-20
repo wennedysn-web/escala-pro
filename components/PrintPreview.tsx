@@ -113,31 +113,34 @@ const PrintPreview: React.FC<Props> = ({ employees, schedules, environments, hol
               display: none !important;
             }
           }
+          .print-area * {
+            color: black !important;
+          }
           .print-table {
             width: 100%;
             border-collapse: collapse;
             font-size: 10px;
           }
           .print-table th, .print-table td {
-            border: 1px solid #ddd;
+            border: 1px solid #000;
             padding: 4px 6px;
             text-align: left;
           }
           .print-table th {
-            background-color: #f8fafc;
+            background-color: #f1f5f9;
             font-weight: 800;
             text-transform: uppercase;
           }
           .row-special {
-            background-color: #f1f5f9;
+            background-color: #f8fafc;
           }
         `}</style>
 
-        <div className="mb-6 text-center border-b-2 border-slate-900 pb-4">
+        <div className="mb-6 text-center border-b-2 border-black pb-4">
           <h1 className="text-xl font-black uppercase tracking-tighter">Escala de Trabalho (D/F)</h1>
           <div className="flex justify-center gap-4 mt-1">
-            <p className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">Mês: {monthLabel} / {selectedYear}</p>
-            <p className="text-[10px] font-black text-indigo-700 uppercase tracking-widest">Ambiente: {selectedEnvName}</p>
+            <p className="text-[10px] font-bold text-black uppercase tracking-widest">Mês: {monthLabel} / {selectedYear}</p>
+            <p className="text-[10px] font-black text-black uppercase tracking-widest">Ambiente: {selectedEnvName}</p>
           </div>
         </div>
 
@@ -163,8 +166,8 @@ const PrintPreview: React.FC<Props> = ({ employees, schedules, environments, hol
                 <tr key={date} className={isSpecial ? 'row-special' : ''}>
                   <td className="font-bold">
                     <div className="flex flex-col">
-                      <span className={isSpecial ? 'text-indigo-700' : ''}>{dayNum}/{selectedMonth + 1} - {dayOfWeek.split('-')[0].substring(0, 3)}.</span>
-                      {holiday && <span className="text-[7px] leading-tight uppercase text-rose-600 font-black">{holiday.name}</span>}
+                      <span className="font-black">{dayNum}/{selectedMonth + 1} - {dayOfWeek.split('-')[0].substring(0, 3)}.</span>
+                      {holiday && <span className="text-[7px] leading-tight uppercase font-black">{holiday.name}</span>}
                     </div>
                   </td>
                   {filteredEnvironments.map(env => {
@@ -183,17 +186,17 @@ const PrintPreview: React.FC<Props> = ({ employees, schedules, environments, hol
                             if (catEmployees.length === 0) return null;
                             return (
                               <div key={cat.id} className="mb-1 last:mb-0">
-                                <span className="text-[7px] font-black uppercase text-slate-400 block leading-none mb-0.5">{cat.name}</span>
+                                <span className="text-[7px] font-black uppercase block leading-none mb-0.5">{cat.name}</span>
                                 <div className="flex flex-wrap gap-x-2 gap-y-0.5">
                                   {catEmployees.map(e => (
-                                    <span key={e.id} className="font-bold text-[9px] text-slate-800">{e.name}</span>
+                                    <span key={e.id} className="font-bold text-[9px]">{e.name}</span>
                                   ))}
                                 </div>
                               </div>
                             );
                           })}
                           {(!envEmployees || envEmployees.length === 0) && (
-                            <span className="text-slate-300 italic text-[9px]">---</span>
+                            <span className="italic text-[9px]">---</span>
                           )}
                         </div>
                       </td>
@@ -206,7 +209,7 @@ const PrintPreview: React.FC<Props> = ({ employees, schedules, environments, hol
         </table>
 
         {days.length === 0 && (
-          <div className="py-20 text-center text-slate-400 italic">Nenhum dia especial encontrado para este mês.</div>
+          <div className="py-20 text-center text-black italic">Nenhum dia especial encontrado para este mês.</div>
         )}
 
         <div className="mt-10 grid grid-cols-2 gap-10 px-6">

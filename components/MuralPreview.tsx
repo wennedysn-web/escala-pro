@@ -123,7 +123,7 @@ const MuralPreview: React.FC<Props> = ({ employees, schedules, environments, hol
             text-transform: uppercase;
           }
           .mural-row-special {
-            background-color: #f5f5f5;
+            background-color: #fff;
           }
           .mural-date-cell {
             width: 180px;
@@ -135,17 +135,20 @@ const MuralPreview: React.FC<Props> = ({ employees, schedules, environments, hol
           .mural-category-label {
             font-size: 11px;
             text-transform: uppercase;
-            color: #444 !important;
+            color: #000 !important;
             margin-bottom: 4px;
             display: block;
             font-weight: 900;
+          }
+          .print-area h1, .print-area h2, .print-area p, .print-area span, .print-area div {
+            color: black !important;
           }
         `}</style>
 
         <div className="mb-10 text-center border-b-4 border-black pb-6">
           <h1 className="text-4xl font-black uppercase tracking-tight">Escala de Serviço</h1>
-          <h2 className="text-2xl font-black text-indigo-700 uppercase mt-2">{selectedEnv?.name}</h2>
-          <p className="text-lg font-bold text-slate-800 mt-1 uppercase tracking-widest">{monthLabel} / {selectedYear} - (Domingos e Feriados)</p>
+          <h2 className="text-2xl font-black uppercase mt-2">{selectedEnv?.name}</h2>
+          <p className="text-lg font-bold mt-1 uppercase tracking-widest">{monthLabel} / {selectedYear} - (Domingos e Feriados)</p>
         </div>
 
         <table className="mural-table">
@@ -175,8 +178,8 @@ const MuralPreview: React.FC<Props> = ({ employees, schedules, environments, hol
                     <div className="flex flex-col">
                       <span className="text-2xl font-black">{dayNum}/{selectedMonth + 1}</span>
                       <span className="text-sm font-bold uppercase">{dayOfWeek}</span>
-                      {holiday && <span className="text-xs font-black text-rose-600 uppercase border-t border-black/10 mt-1 pt-1">{holiday.name}</span>}
-                      {isSun && !holiday && <span className="text-xs font-black text-slate-500 uppercase border-t border-black/10 mt-1 pt-1">Domingo</span>}
+                      {holiday && <span className="text-xs font-black uppercase border-t border-black/10 mt-1 pt-1">{holiday.name}</span>}
+                      {isSun && !holiday && <span className="text-xs font-black uppercase border-t border-black/10 mt-1 pt-1">Domingo</span>}
                     </div>
                   </td>
                   <td className="mural-content-cell">
@@ -195,7 +198,7 @@ const MuralPreview: React.FC<Props> = ({ employees, schedules, environments, hol
                       })}
                       {envEmployees.length === 0 && (
                         <div className="text-center w-full">
-                          <span className="text-slate-600 italic text-xl font-bold">Sem Escala Definida</span>
+                          <span className="italic text-xl font-bold">Sem Escala Definida</span>
                         </div>
                       )}
                     </div>
@@ -207,7 +210,7 @@ const MuralPreview: React.FC<Props> = ({ employees, schedules, environments, hol
         </table>
 
         {days.length === 0 && (
-          <div className="py-20 text-center text-slate-400 text-2xl font-black uppercase">Nenhuma escala para domingos/feriados publicada.</div>
+          <div className="py-20 text-center text-black text-2xl font-black uppercase">Nenhuma escala para domingos/feriados publicada.</div>
         )}
 
         <div className="mt-20 flex justify-between items-end">
