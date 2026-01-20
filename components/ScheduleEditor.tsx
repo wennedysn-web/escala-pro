@@ -24,10 +24,15 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedEnvironments, setSelectedEnvironments] = useState<string[]>([]);
 
+  const holidayInfo = holidays.find(h => h.date === activeDate);
+  const isSpecial = isSunday(activeDate) || !!holidayInfo;
+
   const currentDaySchedule = schedules.find(s => s.date === activeDate) || { date: activeDate, assignments: [] };
   const currentEnvAssigned = currentDaySchedule.assignments.find(a => a.environmentId === activeEnv)?.employeeIds || [];
 
   const toggleEmployee = async (empId: string) => {
+    if (!isSpecial) return; // Bloqueia alterações se não for dia especial
+
     const isAlreadyAssigned = currentEnvAssigned.includes(empId);
     
     try {
@@ -39,7 +44,9 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
       } else {
         const { error: schError } = await supabase.from('schedules').upsert({
           date: activeDate,
-          is_sunday: isSunday(activeDate)
+          is_sunday: isSunday(activeDate),
+          is_holiday: !!holidayInfo,
+          holiday_name: holidayInfo?.name || null
         });
         if (schError) throw schError;
 
@@ -59,6 +66,7 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
   };
 
   const handleConfirm = () => {
+    if (!isSpecial) return;
     setIsConfirming(true);
     setTimeout(() => {
       setIsConfirming(false);
@@ -74,7 +82,6 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
     }).length;
   };
 
-  const holidayInfo = holidays.find(h => h.date === activeDate);
   const assignedIds = currentDaySchedule.assignments.flatMap(a => a.employeeIds);
 
   const handleToggleCategoryFilter = (catId: string) => {
@@ -103,6 +110,7 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
             <div className="flex space-x-2">
               {isSunday(activeDate) && <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-1 rounded">DOMINGO</span>}
               {holidayInfo && <span className="text-[10px] bg-rose-500/20 text-rose-400 px-2 py-1 rounded uppercase">{holidayInfo.name}</span>}
+              {!isSpecial && <span className="text-[10px] bg-slate-700 text-slate-400 px-2 py-1 rounded uppercase font-bold tracking-widest">Dia Comum</span>}
             </div>
           </div>
           <div className="flex space-x-3">
@@ -113,8 +121,24 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
           </div>
         </div>
 
-        <div className="flex-grow overflow-y-auto pr-2">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pb-20">
+        <div className="flex-grow overflow-y-auto pr-2 relative">
+          {!isSpecial && (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-10 bg-slate-900/60 backdrop-blur-[2px] rounded-2xl text-center">
+              <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 shadow-2xl max-w-sm animate-in fade-in zoom-in duration-300">
+                <div className="w-16 h-16 bg-amber-500/10 text-amber-500 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-amber-500/20">
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <h4 className="text-slate-100 font-black text-lg mb-2">Data Não Permitida</h4>
+                <p className="text-slate-400 text-xs leading-relaxed">
+                  A escala só pode ser gerenciada em <b>Domingos</b> ou <b>Feriados</b> cadastrados. Dias comuns não requerem escala especial.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className={`grid grid-cols-1 sm:grid-cols-2 gap-6 pb-20 ${!isSpecial ? 'opacity-30' : ''}`}>
             {categories.map(cat => (
               <div key={cat.id} className="p-6 bg-slate-800/40 rounded-3xl border border-slate-800 shadow-sm">
                 <div className="flex justify-between items-center mb-5">
@@ -128,7 +152,9 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
                     .map(e => e && (
                       <div key={e.id} className="px-3 py-1.5 bg-slate-800 border border-indigo-500/30 text-indigo-300 text-xs font-bold rounded-xl flex items-center group animate-in fade-in zoom-in duration-200">
                         {e.name}
-                        <button onClick={() => toggleEmployee(e.id)} className="ml-2 text-rose-500 font-black hover:scale-125 transition">&times;</button>
+                        {isSpecial && (
+                          <button onClick={() => toggleEmployee(e.id)} className="ml-2 text-rose-500 font-black hover:scale-125 transition">&times;</button>
+                        )}
                       </div>
                     ))}
                   {getCategoryCount(cat.id) === 0 && <p className="text-[10px] text-slate-600 italic">Nenhum selecionado</p>}
@@ -139,7 +165,15 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
         </div>
 
         <div className="absolute bottom-0 left-0 w-full p-6 bg-slate-900/95 backdrop-blur-sm border-t border-slate-800 flex justify-end items-center">
-          <button onClick={handleConfirm} disabled={isConfirming} className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-sm font-black uppercase tracking-widest transition-all shadow-lg shadow-indigo-600/20 active:scale-95">
+          <button 
+            onClick={handleConfirm} 
+            disabled={isConfirming || !isSpecial} 
+            className={`px-8 py-3 rounded-2xl text-sm font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 ${
+              !isSpecial 
+                ? 'bg-slate-800 text-slate-600 cursor-not-allowed border border-slate-700' 
+                : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/20'
+            }`}
+          >
             {isConfirming ? "Sincronizando..." : showSuccess ? "Dia Sincronizado" : "Sincronizar com Banco"}
           </button>
         </div>
@@ -153,7 +187,7 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
           )}
         </div>
         
-        <div className="space-y-4 mb-4">
+        <div className={`space-y-4 mb-4 ${!isSpecial ? 'opacity-30 pointer-events-none' : ''}`}>
           {/* Filtro por Categorias */}
           <div>
             <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-2">Filtrar Categoria</p>
@@ -162,6 +196,7 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
                 <button
                   key={cat.id}
                   onClick={() => handleToggleCategoryFilter(cat.id)}
+                  disabled={!isSpecial}
                   className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase transition-all border ${
                     selectedCategories.includes(cat.id)
                       ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg shadow-indigo-600/20'
@@ -182,6 +217,7 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
                 <button
                   key={env.id}
                   onClick={() => handleToggleEnvFilter(env.id)}
+                  disabled={!isSpecial}
                   className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase transition-all border ${
                     selectedEnvironments.includes(env.id)
                       ? 'bg-emerald-600 border-emerald-400 text-white shadow-lg shadow-emerald-600/20'
@@ -195,7 +231,7 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
           </div>
         </div>
 
-        <div className="flex-grow overflow-y-auto space-y-2 pr-1">
+        <div className={`flex-grow overflow-y-auto space-y-2 pr-1 ${!isSpecial ? 'opacity-30 pointer-events-none' : ''}`}>
           {employees
             .filter(e => e.status === 'Ativo')
             .filter(e => selectedCategories.length === 0 || selectedCategories.includes(e.categoryId))
@@ -207,8 +243,8 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
               return (
                 <button 
                   key={e.id}
-                  onClick={() => !isUsedElsewhere && toggleEmployee(e.id)}
-                  disabled={isUsedElsewhere}
+                  onClick={() => !isUsedElsewhere && isSpecial && toggleEmployee(e.id)}
+                  disabled={isUsedElsewhere || !isSpecial}
                   className={`w-full text-left p-3 rounded-2xl text-xs font-bold transition-all border ${
                     isUsedHere ? 'bg-indigo-600 border-indigo-400 text-white shadow-md' : 
                     isUsedElsewhere ? 'bg-slate-800/30 text-slate-600 border-transparent cursor-not-allowed' : 
