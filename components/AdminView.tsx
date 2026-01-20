@@ -27,7 +27,6 @@ const AdminView: React.FC<Props> = (props) => {
     await recalculateAllEmployeeCounters(props.employees, props.holidays);
     await props.refreshData();
     setIsRecalculating(false);
-    alert("Contadores sincronizados com o histórico de escalas!");
   };
 
   const handleAutoGenerate = async () => {
@@ -37,24 +36,12 @@ const AdminView: React.FC<Props> = (props) => {
     const requirements: Record<string, number> = {};
     props.environments.forEach(env => { requirements[env.id] = 2; });
 
-    const { newSchedules, updatedEmployees } = generateSchedule(
+    const { newSchedules } = generateSchedule(
       new Date(), 31, props.employees, props.schedules, requirements, props.holidays
     );
 
     try {
-      // Atualiza funcionários
-      for (const emp of updatedEmployees) {
-        await supabase.from('employees').update({
-          last_sunday_worked: emp.lastSundayWorked,
-          consecutive_sundays_off: emp.consecutiveSundaysOff,
-          total_sundays_worked: emp.totalSundaysWorked,
-          last_holiday_worked: emp.lastHolidayWorked,
-          consecutive_holidays_off: emp.consecutiveHolidaysOff,
-          total_holidays_worked: emp.totalHolidaysWorked
-        }).eq('id', emp.id);
-      }
-
-      // Salva escalas
+      // 1. Salva escalas e atribuições
       for (const sch of newSchedules) {
         await supabase.from('schedules').upsert({
           date: sch.date,
@@ -74,9 +61,14 @@ const AdminView: React.FC<Props> = (props) => {
           await supabase.from('assignments').insert(assignmentsToInsert);
         }
       }
+
+      // 2. EFETIVAÇÃO: Recálculo automático de todos os contadores baseado no novo histórico
+      await recalculateAllEmployeeCounters(props.employees, props.holidays);
+      
       await props.refreshData();
-      alert("Escala gerada com sucesso!");
+      alert("Escala gerada e contadores atualizados!");
     } catch (err) {
+      console.error(err);
       alert("Erro ao salvar escala.");
     } finally {
       setIsGenerating(false);
@@ -145,7 +137,6 @@ const AdminView: React.FC<Props> = (props) => {
 
       {tab === 'general' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Ambientes */}
           <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl">
             <h3 className="font-bold mb-4 text-slate-100 flex items-center">
                <span className="w-1.5 h-6 bg-indigo-500 rounded-full mr-2"></span> Ambientes
@@ -164,7 +155,6 @@ const AdminView: React.FC<Props> = (props) => {
             </div>
           </div>
 
-          {/* Categorias */}
           <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl">
             <h3 className="font-bold mb-4 text-slate-100 flex items-center">
                <span className="w-1.5 h-6 bg-emerald-500 rounded-full mr-2"></span> Categorias
@@ -183,7 +173,6 @@ const AdminView: React.FC<Props> = (props) => {
             </div>
           </div>
 
-          {/* Feriados */}
           <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 md:col-span-2 shadow-xl">
             <h3 className="font-bold mb-6 text-slate-100">Feriados</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">

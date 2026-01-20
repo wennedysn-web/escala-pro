@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Employee, Category, Environment, DaySchedule, Holiday } from '../types';
 import { formatDateDisplay, isSunday, getLocalDateString } from '../utils/dateUtils';
 import { supabase } from '../lib/supabase';
+import { recalculateAllEmployeeCounters } from '../services/counterService';
 
 interface Props {
   employees: Employee[];
@@ -53,6 +54,7 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
           employee_id: empId
         }]);
       }
+      // Notificamos o estado global, mas o recálculo pesado deixamos para o handleConfirm (efetivação)
       await refreshData();
     } catch (err: any) {
       console.error("Erro na sincronização:", err);
@@ -62,12 +64,19 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
   const handleConfirm = async () => {
     if (!isSpecial) return;
     setIsConfirming(true);
-    // Em uma aplicação real, aqui dispararíamos o recalcular apenas para este dia se necessário
-    // Por enquanto, apenas atualizamos a interface com feedback
-    await refreshData();
-    setIsConfirming(false);
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 2000);
+    
+    try {
+      // EFETIVAÇÃO: Ao clicar em sincronizar, o sistema roda a auditoria para atualizar os contadores de todos
+      await recalculateAllEmployeeCounters(employees, holidays);
+      await refreshData();
+      
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 2000);
+    } catch (err) {
+      console.error("Erro ao efetivar escala:", err);
+    } finally {
+      setIsConfirming(false);
+    }
   };
 
   const getCategoryCount = (catId: string) => {
