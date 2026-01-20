@@ -24,9 +24,21 @@ export interface Employee {
   environmentId: string;
   status: EmployeeStatus;
   role?: string;
+  
+  // Rastreamento de Domingos
+  lastSundayWorked?: string | null;
+  consecutiveSundaysOff: number;
+  totalSundaysWorked: number;
+
+  // Rastreamento de Feriados
+  lastHolidayWorked?: string | null;
+  consecutiveHolidaysOff: number;
+  totalHolidaysWorked: number;
+
+  // CamposLegado (manter para compatibilidade durante migração se necessário)
   lastSpecialDayWorked?: string | null;
-  consecutiveSpecialDaysOff: number;
-  totalSpecialDaysWorked: number;
+  consecutiveSpecialDaysOff?: number;
+  totalSpecialDaysWorked?: number;
 }
 
 export interface ScheduleAssignment {

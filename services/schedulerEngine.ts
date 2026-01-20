@@ -3,14 +3,11 @@ import { Employee, DaySchedule, ScheduleAssignment, Holiday } from '../types';
 import { isSpecialDay, formatDate } from '../utils/dateUtils';
 
 /**
- * Lógica de Priorização:
- * 1. Identifica se o dia é especial (Domingo/Feriado).
- * 2. Se for especial, ordena funcionários:
- *    a. Quem nunca trabalhou em dia especial (lastSpecialDayWorked === null) vai pro topo.
- *    b. Quem tem o 'lastSpecialDayWorked' mais antigo.
- *    c. Quem tem o maior 'consecutiveSpecialDaysOff'.
- * 3. Evita (se possível) escalar quem trabalhou no ÚLTIMO dia especial registrado.
- * 4. Garante que um funcionário não esteja em dois ambientes no mesmo dia.
+ * Lógica de Priorização Atualizada:
+ * 1. Identifica o tipo do dia (Domingo ou Feriado).
+ * 2. Se for Domingo, prioriza quem tem mais 'consecutiveSundaysOff'.
+ * 3. Se for Feriado, prioriza quem tem mais 'consecutiveHolidaysOff'.
+ * 4. Reseta os contadores específicos apenas do tipo de dia trabalhado.
  */
 
 interface InternalAssignment {
@@ -23,22 +20,12 @@ export const generateSchedule = (
   days: number,
   employees: Employee[],
   currentSchedules: DaySchedule[],
-  requirements: Record<string, number>, // Key is environmentId, value is count
+  requirements: Record<string, number>,
   holidays: Holiday[]
 ): { newSchedules: DaySchedule[]; updatedEmployees: Employee[] } => {
   
   let workingEmployees = [...employees];
   const newSchedules: DaySchedule[] = [];
-  
-  // Encontrar a última data especial trabalhada globalmente para evitar back-to-back
-  const allPastSpecialDays = [...currentSchedules]
-    .filter(s => s.isSunday || s.isHoliday)
-    .sort((a, b) => b.date.localeCompare(a.date));
-  
-  const lastSpecialDate = allPastSpecialDays.length > 0 ? allPastSpecialDays[0].date : null;
-  const employeesWhoWorkedLastSpecial = lastSpecialDate 
-    ? allPastSpecialDays[0].assignments.flatMap(a => a.employeeIds)
-    : [];
 
   for (let i = 0; i < days; i++) {
     const currentDate = new Date(startDate);
@@ -50,55 +37,56 @@ export const generateSchedule = (
     let pool = [...workingEmployees].filter(e => e.status === 'Ativo');
 
     if (dayInfo.special) {
-      // ORDENAÇÃO DE PRIORIDADE PARA DIAS ESPECIAIS
+      const isSun = dayInfo.type === 'Sunday';
+
+      // ORDENAÇÃO DE PRIORIDADE ESPECÍFICA
       pool.sort((a, b) => {
-        const aLast = a.lastSpecialDayWorked;
-        const bLast = b.lastSpecialDayWorked;
-
-        if (!aLast && bLast) return -1;
-        if (aLast && !bLast) return 1;
-        
-        if (aLast && bLast) {
-          if (aLast < bLast) return -1;
-          if (aLast > bLast) return 1;
+        if (isSun) {
+          // Prioridade para Domingo
+          if (b.consecutiveSundaysOff !== a.consecutiveSundaysOff) {
+            return b.consecutiveSundaysOff - a.consecutiveSundaysOff;
+          }
+          return (a.lastSundayWorked || '') > (b.lastSundayWorked || '') ? 1 : -1;
+        } else {
+          // Prioridade para Feriado
+          if (b.consecutiveHolidaysOff !== a.consecutiveHolidaysOff) {
+            return b.consecutiveHolidaysOff - a.consecutiveHolidaysOff;
+          }
+          return (a.lastHolidayWorked || '') > (b.lastHolidayWorked || '') ? 1 : -1;
         }
-
-        return b.consecutiveSpecialDaysOff - a.consecutiveSpecialDaysOff;
       });
-
-      // Tenta evitar quem trabalhou no último dia especial
-      const totalRequired = Object.values(requirements).reduce((a, b) => a + b, 0);
-      const nonBackToBackPool = pool.filter(e => !employeesWhoWorkedLastSpecial.includes(e.id));
-      const finalPool = nonBackToBackPool.length >= totalRequired ? nonBackToBackPool : pool;
 
       let currentIndex = 0;
       Object.entries(requirements).forEach(([envId, count]) => {
-        const staff = finalPool.slice(currentIndex, currentIndex + count);
+        const staff = pool.slice(currentIndex, currentIndex + count);
         staff.forEach(e => {
           dailyAssignments.push({ employeeId: e.id, environmentId: envId });
         });
         currentIndex += count;
       });
 
-      // Atualizar métricas dos funcionários
+      // Atualizar métricas específicas
       workingEmployees = workingEmployees.map(emp => {
         const workedToday = dailyAssignments.some(a => a.employeeId === emp.id);
-        if (workedToday) {
+        
+        if (isSun) {
           return {
             ...emp,
-            lastSpecialDayWorked: dateStr,
-            consecutiveSpecialDaysOff: 0,
-            totalSpecialDaysWorked: emp.totalSpecialDaysWorked + 1
+            lastSundayWorked: workedToday ? dateStr : emp.lastSundayWorked,
+            consecutiveSundaysOff: workedToday ? 0 : emp.consecutiveSundaysOff + 1,
+            totalSundaysWorked: workedToday ? emp.totalSundaysWorked + 1 : emp.totalSundaysWorked
           };
         } else {
           return {
             ...emp,
-            consecutiveSpecialDaysOff: emp.consecutiveSpecialDaysOff + 1
+            lastHolidayWorked: workedToday ? dateStr : emp.lastHolidayWorked,
+            consecutiveHolidaysOff: workedToday ? 0 : emp.consecutiveHolidaysOff + 1,
+            totalHolidaysWorked: workedToday ? emp.totalHolidaysWorked + 1 : emp.totalHolidaysWorked
           };
         }
       });
     } else {
-      // Escala de dia comum - Rotação simples
+      // Dia comum
       let currentIndex = 0;
       Object.entries(requirements).forEach(([envId, count]) => {
         const staff = pool.slice(currentIndex, currentIndex + count);
@@ -108,14 +96,12 @@ export const generateSchedule = (
         currentIndex += count;
       });
       
-      // Rotaciona o pool base para o dia seguinte
       const totalSelected = dailyAssignments.length;
       if (totalSelected > 0) {
         workingEmployees = [...workingEmployees.slice(totalSelected), ...workingEmployees.slice(0, totalSelected)];
       }
     }
 
-    // Converter para o formato DaySchedule
     const assignments: ScheduleAssignment[] = Object.keys(requirements).map(envId => ({
       environmentId: envId,
       employeeIds: dailyAssignments.filter(a => a.environmentId === envId).map(a => a.employeeId)

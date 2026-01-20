@@ -29,7 +29,6 @@ const App: React.FC = () => {
         supabase.from('assignments').select('*')
       ]);
 
-      // Verificação robusta de erros do Supabase
       if (cats.error || envs.error || emps.error || hols.error || schs.error || assigns.error) {
         throw new Error("Falha ao carregar dados do banco de dados.");
       }
@@ -40,9 +39,12 @@ const App: React.FC = () => {
         ...e,
         categoryId: e.category_id,
         environmentId: e.environment_id,
-        lastSpecialDayWorked: e.last_special_day,
-        consecutiveSpecialDaysOff: e.consecutive_days_off,
-        totalSpecialDaysWorked: e.total_special_days
+        lastSundayWorked: e.last_sunday_worked,
+        consecutiveSundaysOff: e.consecutive_sundays_off,
+        totalSundaysWorked: e.total_sundays_worked,
+        lastHolidayWorked: e.last_holiday_worked,
+        consecutiveHolidaysOff: e.consecutive_holidays_off,
+        totalHolidaysWorked: e.total_holidays_worked
       })));
       if (hols.data) setHolidays(hols.data);
       
@@ -77,13 +79,11 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    // Verificar sessão inicial
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       fetchData().then(() => setLoading(false));
     });
 
-    // Escutar mudanças na autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });

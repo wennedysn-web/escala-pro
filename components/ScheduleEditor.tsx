@@ -101,6 +101,10 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
     setSelectedEnvironments([]);
   };
 
+  const formatCounter = (count: number) => {
+    return count > 10 ? '>10' : count.toString();
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-[75vh]">
       {/* Coluna de Atribuições (Categorias) - Agora à esquerda e em lista única */}
@@ -257,7 +261,7 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
                     }`}
                   >
                     <div className="flex flex-col h-full justify-between">
-                      <div className="flex justify-between items-start mb-3">
+                      <div className="flex justify-between items-start mb-2">
                         <span className="font-black text-sm truncate pr-2">{e.name}</span>
                         {isUsedElsewhere && <span className="text-[7px] bg-slate-900/50 px-1.5 py-0.5 rounded-full text-rose-400 border border-rose-500/20 font-black">OCUPADO</span>}
                         {isUsedHere && (
@@ -266,6 +270,19 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
                           </div>
                         )}
                       </div>
+
+                      {/* Contadores de Escala */}
+                      <div className="flex gap-2 mb-3">
+                         <div className={`flex items-center px-1.5 py-0.5 rounded-lg border text-[9px] font-black ${e.consecutiveSundaysOff >= 10 ? 'bg-amber-500/10 border-amber-500/30 text-amber-500' : 'bg-slate-900/40 border-slate-700 text-slate-500'}`}>
+                            <span className="opacity-50 mr-1">D:</span>
+                            {formatCounter(e.consecutiveSundaysOff)}
+                         </div>
+                         <div className={`flex items-center px-1.5 py-0.5 rounded-lg border text-[9px] font-black ${e.consecutiveHolidaysOff >= 10 ? 'bg-rose-500/10 border-rose-500/30 text-rose-500' : 'bg-slate-900/40 border-slate-700 text-slate-500'}`}>
+                            <span className="opacity-50 mr-1">F:</span>
+                            {formatCounter(e.consecutiveHolidaysOff)}
+                         </div>
+                      </div>
+
                       <div className="space-y-1">
                         <div className="flex items-center text-[9px] font-bold opacity-60">
                           <svg className="w-2.5 h-2.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>

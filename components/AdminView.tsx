@@ -42,9 +42,12 @@ const AdminView: React.FC<Props> = (props) => {
     try {
       for (const emp of updatedEmployees) {
         await supabase.from('employees').update({
-          last_special_day: emp.lastSpecialDayWorked,
-          consecutive_days_off: emp.consecutiveSpecialDaysOff,
-          total_special_days: emp.totalSpecialDaysWorked
+          last_sunday_worked: emp.lastSundayWorked,
+          consecutive_sundays_off: emp.consecutiveSundaysOff,
+          total_sundays_worked: emp.totalSundaysWorked,
+          last_holiday_worked: emp.lastHolidayWorked,
+          consecutive_holidays_off: emp.consecutiveHolidaysOff,
+          total_holidays_worked: emp.totalHolidaysWorked
         }).eq('id', emp.id);
       }
 
@@ -104,8 +107,10 @@ const AdminView: React.FC<Props> = (props) => {
       } else {
         await supabase.from('employees').insert([{
           ...payload,
-          consecutive_days_off: 0,
-          total_special_days: 0
+          consecutive_sundays_off: 0,
+          total_sundays_worked: 0,
+          consecutive_holidays_off: 0,
+          total_holidays_worked: 0
         }]);
       }
       await props.refreshData();
