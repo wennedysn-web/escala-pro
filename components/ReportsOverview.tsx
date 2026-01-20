@@ -18,6 +18,15 @@ const ReportsOverview: React.FC<Props> = ({ employees, environments, categories,
   const vacationCount = employees.filter(e => e.status === 'Férias').length;
   const leaveCount = employees.filter(e => e.status === 'Atestado').length;
 
+  const getStatusStyle = (status: string) => {
+    switch (status) {
+      case 'Ativo': return { backgroundColor: '#10b981', color: 'white' }; // emerald-500
+      case 'Férias': return { backgroundColor: '#f59e0b', color: 'white' }; // amber-500
+      case 'Atestado': return { backgroundColor: '#ef4444', color: 'white' }; // rose-500
+      default: return {};
+    }
+  };
+
   return (
     <div className="bg-slate-900 rounded-3xl border border-slate-800 p-8">
       {/* Controles Web */}
@@ -48,6 +57,8 @@ const ReportsOverview: React.FC<Props> = ({ employees, environments, categories,
             body {
               background: white !important;
               color: black !important;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
             }
             .print-area {
               width: 100% !important;
@@ -60,7 +71,7 @@ const ReportsOverview: React.FC<Props> = ({ employees, environments, categories,
             }
           }
           .print-area * {
-            color: black !important;
+            color: black;
           }
           .report-table {
             width: 100%;
@@ -92,14 +103,19 @@ const ReportsOverview: React.FC<Props> = ({ employees, environments, categories,
             font-size: 10px;
             text-transform: uppercase;
             font-weight: 700;
-            color: #000 !important;
+            color: #000;
           }
           .status-badge {
             font-size: 9px;
             font-weight: 900;
-            padding: 2px 6px;
+            padding: 4px 8px;
             border: 1px solid #000;
             text-transform: uppercase;
+            display: inline-block;
+            border-radius: 4px;
+          }
+          .status-badge span {
+            color: white !important;
           }
         `}</style>
 
@@ -163,18 +179,23 @@ const ReportsOverview: React.FC<Props> = ({ employees, environments, categories,
               </tr>
             </thead>
             <tbody>
-              {employees.sort((a,b) => a.name.localeCompare(b.name)).map(emp => (
-                <tr key={emp.id}>
-                  <td className="font-bold">{emp.name}</td>
-                  <td>{categories.find(c => c.id === emp.categoryId)?.name || '---'}</td>
-                  <td>{environments.find(e => e.id === emp.environmentId)?.name || '---'}</td>
-                  <td style={{ textAlign: 'center' }}>
-                    <span className="status-badge">{emp.status}</span>
-                  </td>
-                  <td style={{ textAlign: 'center' }} className="font-black">{emp.sundaysWorkedCurrentYear}</td>
-                  <td style={{ textAlign: 'center' }} className="font-black">{emp.holidaysWorkedCurrentYear}</td>
-                </tr>
-              ))}
+              {employees.sort((a,b) => a.name.localeCompare(b.name)).map(emp => {
+                const statusStyle = getStatusStyle(emp.status);
+                return (
+                  <tr key={emp.id}>
+                    <td className="font-bold">{emp.name}</td>
+                    <td>{categories.find(c => c.id === emp.categoryId)?.name || '---'}</td>
+                    <td>{environments.find(e => e.id === emp.environmentId)?.name || '---'}</td>
+                    <td style={{ textAlign: 'center' }}>
+                      <span className="status-badge" style={{ backgroundColor: statusStyle.backgroundColor, borderColor: 'black' }}>
+                        <span style={{ color: 'white' }}>{emp.status}</span>
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'center' }} className="font-black">{emp.sundaysWorkedCurrentYear}</td>
+                    <td style={{ textAlign: 'center' }} className="font-black">{emp.holidaysWorkedCurrentYear}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
