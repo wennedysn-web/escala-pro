@@ -59,14 +59,15 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
     }
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!isSpecial) return;
     setIsConfirming(true);
-    setTimeout(() => {
-      setIsConfirming(false);
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
-    }, 600);
+    // Em uma aplicação real, aqui dispararíamos o recalcular apenas para este dia se necessário
+    // Por enquanto, apenas atualizamos a interface com feedback
+    await refreshData();
+    setIsConfirming(false);
+    setShowSuccess(true);
+    setTimeout(() => setShowSuccess(false), 2000);
   };
 
   const getCategoryCount = (catId: string) => {
@@ -139,9 +140,9 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
           <button 
             onClick={handleConfirm} 
             disabled={isConfirming || !isSpecial} 
-            className={`w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${!isSpecial ? 'bg-slate-800 text-slate-600' : 'bg-indigo-600 text-white shadow-lg'}`}
+            className={`w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${!isSpecial ? 'bg-slate-800 text-slate-600' : showSuccess ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white shadow-lg'}`}
           >
-            {isConfirming ? "Sincronizando..." : showSuccess ? "Sincronizado" : "Sincronizar Dia"}
+            {isConfirming ? "Sincronizando..." : showSuccess ? "Dia Sincronizado!" : "Sincronizar Dia"}
           </button>
         </div>
       </div>
@@ -150,11 +151,6 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
       <div className="lg:col-span-8 bg-slate-900 p-8 rounded-3xl border border-slate-800 flex flex-col overflow-hidden">
         <div className="flex justify-between items-center mb-8 border-b border-slate-800 pb-6">
           <h3 className="text-slate-100 font-black text-lg uppercase tracking-widest">Colaboradores Disponíveis</h3>
-          <div className="flex gap-2">
-            {(selectedCategories.length > 0 || selectedEnvironments.length > 0) && (
-              <button onClick={() => {setSelectedCategories([]); setSelectedEnvironments([]);}} className="text-[10px] font-black uppercase text-rose-400 px-3 py-1 bg-rose-500/10 rounded-lg">Limpar</button>
-            )}
-          </div>
         </div>
 
         {/* Filtros Horizontais */}
@@ -212,17 +208,13 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
                   >
                     <div className="flex justify-between items-start mb-2">
                       <span className="font-black text-sm truncate pr-2">{e.name}</span>
-                      {isUsedElsewhere && <span className="text-[7px] bg-rose-500/20 text-rose-400 px-1 py-0.5 rounded font-black uppercase">Ocupado</span>}
                     </div>
-
                     <div className="flex gap-2">
                       <div className={`flex items-center px-1.5 py-0.5 rounded-lg border text-[9px] font-black ${e.consecutiveSundaysOff >= 10 ? 'bg-amber-500/10 border-amber-500/30 text-amber-500' : 'bg-slate-900/40 border-slate-700 text-slate-500'}`}>
-                        <span className="opacity-50 mr-1">D:</span>
-                        {formatCounter(e.consecutiveSundaysOff)}
+                        <span className="opacity-50 mr-1">D:</span> {formatCounter(e.consecutiveSundaysOff)}
                       </div>
                       <div className={`flex items-center px-1.5 py-0.5 rounded-lg border text-[9px] font-black ${e.consecutiveHolidaysOff >= 10 ? 'bg-rose-500/10 border-rose-500/30 text-rose-500' : 'bg-slate-900/40 border-slate-700 text-slate-500'}`}>
-                        <span className="opacity-50 mr-1">F:</span>
-                        {formatCounter(e.consecutiveHolidaysOff)}
+                        <span className="opacity-50 mr-1">F:</span> {formatCounter(e.consecutiveHolidaysOff)}
                       </div>
                     </div>
                   </button>

@@ -2,30 +2,36 @@
 import { Employee, DaySchedule, ScheduleAssignment, Holiday } from '../types';
 import { isSpecialDay, formatDate } from '../utils/dateUtils';
 
-/**
- * Lógica de Priorização Atualizada:
- * 1. Identifica o tipo do dia (Domingo ou Feriado).
- * 2. Se for Domingo, prioriza quem tem mais 'consecutiveSundaysOff'.
- * 3. Se for Feriado, prioriza quem tem mais 'consecutiveHolidaysOff'.
- * 4. Reseta os contadores específicos apenas do tipo de dia trabalhado.
- */
-
 interface InternalAssignment {
   employeeId: string;
   environmentId: string;
 }
 
+/**
+ * Lógica de Automação com Memória de Curto Prazo:
+ * - Filtra quem trabalhou no dia especial imediatamente anterior do mesmo tipo.
+ * - Prioriza quem tem maior contador de folgas (99 = nunca trabalhou).
+ */
 export const generateSchedule = (
   startDate: Date,
   days: number,
   employees: Employee[],
-  currentSchedules: DaySchedule[],
+  currentSchedules: DaySchedule[], // Escalas já existentes para referência
   requirements: Record<string, number>,
   holidays: Holiday[]
 ): { newSchedules: DaySchedule[]; updatedEmployees: Employee[] } => {
   
   let workingEmployees = [...employees];
   const newSchedules: DaySchedule[] = [];
+
+  // Encontrar as últimas datas de domingo e feriado trabalhadas no sistema geral
+  let lastSundayInSystem = currentSchedules
+    .filter(s => s.isSunday)
+    .sort((a, b) => b.date.localeCompare(a.date))[0]?.date;
+
+  let lastHolidayInSystem = currentSchedules
+    .filter(s => s.isHoliday)
+    .sort((a, b) => b.date.localeCompare(a.date))[0]?.date;
 
   for (let i = 0; i < days; i++) {
     const currentDate = new Date(startDate);
@@ -38,17 +44,27 @@ export const generateSchedule = (
 
     if (dayInfo.special) {
       const isSun = dayInfo.type === 'Sunday';
+      const lastDate = isSun ? lastSundayInSystem : lastHolidayInSystem;
 
-      // ORDENAÇÃO DE PRIORIDADE ESPECÍFICA
-      pool.sort((a, b) => {
+      // REGRA: Evitar quem trabalhou no Domingo/Feriado IMEDIATAMENTE anterior
+      let candidates = pool.filter(e => {
+        const lastWorked = isSun ? e.lastSundayWorked : e.lastHolidayWorked;
+        return lastWorked !== lastDate;
+      });
+
+      // Se o filtro for agressivo demais e faltar gente, volta pro pool geral mas mantém no fim da fila
+      if (candidates.length < Object.values(requirements).reduce((a, b) => a + b, 0)) {
+        candidates = pool;
+      }
+
+      // ORDENAÇÃO POR PRIORIDADE (Quem está há mais tempo sem trabalhar)
+      candidates.sort((a, b) => {
         if (isSun) {
-          // Prioridade para Domingo
           if (b.consecutiveSundaysOff !== a.consecutiveSundaysOff) {
             return b.consecutiveSundaysOff - a.consecutiveSundaysOff;
           }
           return (a.lastSundayWorked || '') > (b.lastSundayWorked || '') ? 1 : -1;
         } else {
-          // Prioridade para Feriado
           if (b.consecutiveHolidaysOff !== a.consecutiveHolidaysOff) {
             return b.consecutiveHolidaysOff - a.consecutiveHolidaysOff;
           }
@@ -58,17 +74,16 @@ export const generateSchedule = (
 
       let currentIndex = 0;
       Object.entries(requirements).forEach(([envId, count]) => {
-        const staff = pool.slice(currentIndex, currentIndex + count);
+        const staff = candidates.slice(currentIndex, currentIndex + count);
         staff.forEach(e => {
           dailyAssignments.push({ employeeId: e.id, environmentId: envId });
         });
         currentIndex += count;
       });
 
-      // Atualizar métricas específicas
+      // Atualiza estado dos funcionários para o próximo dia do loop
       workingEmployees = workingEmployees.map(emp => {
         const workedToday = dailyAssignments.some(a => a.employeeId === emp.id);
-        
         if (isSun) {
           return {
             ...emp,
@@ -85,8 +100,13 @@ export const generateSchedule = (
           };
         }
       });
+
+      // Atualiza referência de "último dia do sistema"
+      if (isSun) lastSundayInSystem = dateStr;
+      else lastHolidayInSystem = dateStr;
+
     } else {
-      // Dia comum
+      // Dia Comum: Rodízio simples
       let currentIndex = 0;
       Object.entries(requirements).forEach(([envId, count]) => {
         const staff = pool.slice(currentIndex, currentIndex + count);
@@ -95,10 +115,10 @@ export const generateSchedule = (
         });
         currentIndex += count;
       });
-      
-      const totalSelected = dailyAssignments.length;
-      if (totalSelected > 0) {
-        workingEmployees = [...workingEmployees.slice(totalSelected), ...workingEmployees.slice(0, totalSelected)];
+      // Rotaciona pool para não pegar sempre os mesmos nos dias comuns
+      const shiftSize = dailyAssignments.length;
+      if (shiftSize > 0) {
+        workingEmployees = [...workingEmployees.slice(shiftSize), ...workingEmployees.slice(0, shiftSize)];
       }
     }
 
