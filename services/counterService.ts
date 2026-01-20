@@ -4,17 +4,28 @@ import { Employee, Holiday } from '../types';
 
 /**
  * Função de Auditoria: Reconstrói os contadores baseando-se no histórico real de assignments.
- * Regras cruciais:
- * 1. Apenas dias que possuem pelo menos uma atribuição (escala montada) são considerados para o cálculo de folgas.
- * 2. Se o colaborador trabalhou na última escala montada do tipo (D/F), o contador é obrigatoriamente 0.
- * 3. Se nunca trabalhou, o contador é 99 (Prioridade Máxima).
- * 4. O contador incrementa apenas quando uma escala montada ocorre e o colaborador não faz parte dela.
- * 5. Agora rastreia também os trabalhados no ANO ATUAL.
  */
 export const recalculateAllEmployeeCounters = async (employees: Employee[], holidays: Holiday[]) => {
-  const currentYear = new Date().getFullYear().toString();
+  // 1. Buscar TODAS as escalas (schedules) para identificar o "ano de interesse"
+  const { data: allSchedules, error: schError } = await supabase
+    .from('schedules')
+    .select('date, is_sunday, is_holiday')
+    .order('date', { ascending: true });
 
-  // 1. Buscar TODAS as atribuições (assignments) para identificar dias realmente escalados
+  if (schError || !allSchedules || allSchedules.length === 0) {
+    console.error("Erro ao buscar histórico de escalas ou banco vazio");
+    return;
+  }
+
+  // Determinamos o "Ano de Referência" como sendo o ano da escala mais recente no sistema
+  // Isso resolve o problema de testes ou planejamentos feitos para anos futuros (ex: 2026 em 2025)
+  const systemYear = new Date().getFullYear();
+  const latestScheduleDate = allSchedules[allSchedules.length - 1].date;
+  const latestScheduleYear = new Date(latestScheduleDate + 'T00:00:00').getFullYear();
+  const activeYear = Math.max(systemYear, latestScheduleYear);
+  const activeYearStr = activeYear.toString();
+
+  // 2. Buscar TODAS as atribuições (assignments) para identificar dias realmente escalados
   const { data: allAssignments, error: assError } = await supabase
     .from('assignments')
     .select('date, employee_id');
@@ -24,19 +35,8 @@ export const recalculateAllEmployeeCounters = async (employees: Employee[], holi
     return;
   }
 
-  // Identificar quais datas possuem pelo menos uma pessoa escalada no sistema
+  // Identificar quais datas possuem pelo menos uma pessoa escalada no sistema (escala montada)
   const mountedDates = new Set(allAssignments.map(a => a.date));
-
-  // 2. Buscar TODAS as escalas (schedules) ordenadas
-  const { data: allSchedules, error: schError } = await supabase
-    .from('schedules')
-    .select('date, is_sunday, is_holiday')
-    .order('date', { ascending: true });
-
-  if (schError || !allSchedules) {
-    console.error("Erro ao buscar histórico de escalas");
-    return;
-  }
 
   const updatedEmployees = employees.map(emp => {
     let lastSun: string | null = null;
@@ -60,19 +60,22 @@ export const recalculateAllEmployeeCounters = async (employees: Employee[], holi
 
     // Itera por todas as escalas cadastradas
     allSchedules.forEach(sch => {
+      // Regra de Auditoria: Só conta se a escala foi efetivamente montada (tem alguém escalado)
       if (!mountedDates.has(sch.date)) return;
 
       const worked = empAssigns.has(sch.date);
-      const isCurrentYear = sch.date.startsWith(currentYear);
+      const schYearStr = sch.date.split('-')[0];
+      const isTargetYear = schYearStr === activeYearStr;
 
       if (sch.is_sunday) {
         if (worked) {
           lastSun = sch.date;
           sunOff = 0;
           sunTotal++;
-          if (isCurrentYear) sunCurrentYear++;
+          if (isTargetYear) sunCurrentYear++;
           hasWorkedSun = true;
         } else {
+          // Só incrementa se ele já trabalhou no sistema alguma vez (evita inflar 99)
           if (hasWorkedSun) {
             sunOff++;
           } else {
@@ -86,7 +89,7 @@ export const recalculateAllEmployeeCounters = async (employees: Employee[], holi
           lastHol = sch.date;
           holOff = 0;
           holTotal++;
-          if (isCurrentYear) holCurrentYear++;
+          if (isTargetYear) holCurrentYear++;
           hasWorkedHol = true;
         } else {
           if (hasWorkedHol) {

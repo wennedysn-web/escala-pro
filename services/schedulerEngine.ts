@@ -8,9 +8,7 @@ interface InternalAssignment {
 }
 
 /**
- * Lógica de Automação com Memória de Curto Prazo:
- * - Filtra quem trabalhou no dia especial imediatamente anterior do mesmo tipo.
- * - Prioriza quem tem maior contador de folgas (99 = nunca trabalhou).
+ * Lógica de Automação com Memória de Curto Prazo
  */
 export const generateSchedule = (
   startDate: Date,
@@ -23,6 +21,11 @@ export const generateSchedule = (
   
   let workingEmployees = [...employees];
   const newSchedules: DaySchedule[] = [];
+
+  // Determinamos o ano alvo para contadores anuais baseados no range de geração
+  const systemYear = new Date().getFullYear();
+  const generationYear = startDate.getFullYear();
+  const activeYearStr = Math.max(systemYear, generationYear).toString();
 
   let lastSundayInSystem = currentSchedules
     .filter(s => s.isSunday)
@@ -37,6 +40,8 @@ export const generateSchedule = (
     currentDate.setDate(currentDate.getDate() + i);
     const dateStr = formatDate(currentDate);
     const dayInfo = isSpecialDay(currentDate, holidays);
+    const schYearStr = dateStr.split('-')[0];
+    const isTargetYear = schYearStr === activeYearStr;
 
     let dailyAssignments: InternalAssignment[] = [];
     let pool = [...workingEmployees].filter(e => e.status === 'Ativo');
@@ -85,7 +90,8 @@ export const generateSchedule = (
             ...emp,
             lastSundayWorked: workedToday ? dateStr : emp.lastSundayWorked,
             consecutiveSundaysOff: workedToday ? 0 : (hasWorkedBefore ? emp.consecutiveSundaysOff + 1 : 99),
-            totalSundaysWorked: workedToday ? emp.totalSundaysWorked + 1 : emp.totalSundaysWorked
+            totalSundaysWorked: workedToday ? emp.totalSundaysWorked + 1 : emp.totalSundaysWorked,
+            sundaysWorkedCurrentYear: (workedToday && isTargetYear) ? emp.sundaysWorkedCurrentYear + 1 : emp.sundaysWorkedCurrentYear
           };
         } else {
           const hasWorkedBeforeHol = !!emp.lastHolidayWorked;
@@ -93,7 +99,8 @@ export const generateSchedule = (
             ...emp,
             lastHolidayWorked: workedToday ? dateStr : emp.lastHolidayWorked,
             consecutiveHolidaysOff: workedToday ? 0 : (hasWorkedBeforeHol ? emp.consecutiveHolidaysOff + 1 : 99),
-            totalHolidaysWorked: workedToday ? emp.totalHolidaysWorked + 1 : emp.totalHolidaysWorked
+            totalHolidaysWorked: workedToday ? emp.totalHolidaysWorked + 1 : emp.totalHolidaysWorked,
+            holidaysWorkedCurrentYear: (workedToday && isTargetYear) ? emp.holidaysWorkedCurrentYear + 1 : emp.holidaysWorkedCurrentYear
           };
         }
       });
