@@ -27,9 +27,15 @@ const AdminView: React.FC<Props> = (props) => {
 
   const handleRecalculate = async () => {
     setIsRecalculating(true);
-    await recalculateAllEmployeeCounters(props.employees, props.holidays);
-    await props.refreshData();
-    setIsRecalculating(false);
+    try {
+      await recalculateAllEmployeeCounters(props.employees, props.holidays);
+      await props.refreshData();
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao recalcular contadores.");
+    } finally {
+      setIsRecalculating(false);
+    }
   };
 
   const handleAutoGenerate = async () => {
@@ -65,12 +71,11 @@ const AdminView: React.FC<Props> = (props) => {
       }
 
       await recalculateAllEmployeeCounters(props.employees, props.holidays);
-      
       await props.refreshData();
-      alert("Escala gerada e contadores atualizados!");
+      alert("Escala gerada com sucesso!");
     } catch (err) {
       console.error(err);
-      alert("Erro ao salvar escala.");
+      alert("Erro ao salvar escala automática.");
     } finally {
       setIsGenerating(false);
     }
@@ -79,8 +84,9 @@ const AdminView: React.FC<Props> = (props) => {
   const handleSaveEmployee = async (e: React.FormEvent | null, closeAfter: boolean = true) => {
     if (e) e.preventDefault();
     if (!editingEmployee?.name || !editingEmployee?.categoryId || !editingEmployee?.environmentId) {
-      alert("Preencha todos os campos."); return;
+      alert("Preencha todos os campos obrigatórios."); return;
     }
+    
     const payload = {
       name: editingEmployee.name,
       category_id: editingEmployee.categoryId,
@@ -88,11 +94,13 @@ const AdminView: React.FC<Props> = (props) => {
       status: editingEmployee.status || 'Ativo',
       role: editingEmployee.role || ''
     };
+
     try {
+      let res;
       if (editingEmployee.id) {
-        await supabase.from('employees').update(payload).eq('id', editingEmployee.id);
+        res = await supabase.from('employees').update(payload).eq('id', editingEmployee.id);
       } else {
-        await supabase.from('employees').insert([{
+        res = await supabase.from('employees').insert([{
           ...payload,
           consecutive_sundays_off: 99,
           total_sundays_worked: 0,
@@ -102,9 +110,36 @@ const AdminView: React.FC<Props> = (props) => {
           holidays_worked_current_year: 0
         }]);
       }
+
+      if (res.error) throw res.error;
+
       await props.refreshData();
-      if (closeAfter) { setShowEmployeeModal(false); setEditingEmployee(null); }
-    } catch (err) { alert("Erro ao salvar."); }
+      if (closeAfter) { 
+        setShowEmployeeModal(false); 
+        setEditingEmployee(null); 
+      }
+    } catch (err: any) {
+      alert("Erro ao salvar colaborador: " + err.message);
+    }
+  };
+
+  const handleDeleteEmployee = async (empId: string) => {
+    if (!confirm("Tem certeza que deseja remover este colaborador? Isso apagará todo o histórico de escalas dele.")) return;
+
+    try {
+      // 1. Remove dependências na tabela de atribuições (evita erro de chave estrangeira)
+      const { error: assignError } = await supabase.from('assignments').delete().eq('employee_id', empId);
+      if (assignError) throw assignError;
+
+      // 2. Remove o colaborador
+      const { error: empError } = await supabase.from('employees').delete().eq('id', empId);
+      if (empError) throw empError;
+
+      await props.refreshData();
+    } catch (err: any) {
+      console.error("Erro ao deletar:", err);
+      alert("Não foi possível excluir o colaborador: " + err.message);
+    }
   };
 
   const getStatusBadgeClass = (status: EmployeeStatus) => {
@@ -226,9 +261,8 @@ const AdminView: React.FC<Props> = (props) => {
                 <th className="py-4">Nome</th>
                 <th className="py-4">Categoria</th>
                 <th className="py-4">Ambiente</th>
-                <th className="py-4">Folgas (D/F)</th>
-                <th className="py-4">Trabalhados (Ano)</th>
-                <th className="py-4">Status</th>
+                <th className="py-4 text-center">Folgas (D/F)</th>
+                <th className="py-4 text-center">Status</th>
                 <th className="py-4 text-right">Ações</th>
               </tr>
             </thead>
@@ -238,19 +272,21 @@ const AdminView: React.FC<Props> = (props) => {
                   <td className="py-4 font-bold text-slate-100">{emp.name}</td>
                   <td className="py-4 text-xs text-slate-400">{props.categories.find(c => c.id === emp.categoryId)?.name || '-'}</td>
                   <td className="py-4 text-xs text-slate-400">{props.environments.find(e => e.id === emp.environmentId)?.name || '-'}</td>
-                  <td className="py-4 text-xs font-black text-indigo-400">{emp.consecutiveSundaysOff}/{emp.consecutiveHolidaysOff}</td>
-                  <td className="py-4 text-xs font-black text-emerald-400">D: {emp.sundaysWorkedCurrentYear} / F: {emp.holidaysWorkedCurrentYear}</td>
-                  <td className="py-4">
+                  <td className="py-4 text-xs font-black text-indigo-400 text-center">{emp.consecutiveSundaysOff}/{emp.consecutiveHolidaysOff}</td>
+                  <td className="py-4 text-center">
                     <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-lg ${getStatusBadgeClass(emp.status)}`}>{emp.status}</span>
                   </td>
-                  <td className="py-4 text-right opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => { setEditingEmployee(emp); setShowEmployeeModal(true); }} className="text-indigo-400 text-xs font-bold mr-4">Editar</button>
-                    <button onClick={async () => { if(confirm("Remover?")) { await supabase.from('employees').delete().eq('id', emp.id); props.refreshData(); } }} className="text-rose-400 text-xs font-bold">Remover</button>
+                  <td className="py-4 text-right">
+                    <button onClick={() => { setEditingEmployee(emp); setShowEmployeeModal(true); }} className="text-indigo-400 hover:text-indigo-300 text-xs font-bold mr-4 transition-colors">Editar</button>
+                    <button onClick={() => handleDeleteEmployee(emp.id)} className="text-rose-400 hover:text-rose-300 text-xs font-bold transition-colors">Remover</button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          {props.employees.length === 0 && (
+            <div className="p-20 text-center text-slate-500 italic uppercase text-[10px] font-black tracking-widest">Nenhum colaborador cadastrado</div>
+          )}
         </div>
       )}
 
@@ -295,25 +331,25 @@ const AdminView: React.FC<Props> = (props) => {
           <div className="bg-slate-900 w-full max-w-lg rounded-3xl border border-slate-800 p-8 shadow-2xl">
             <h3 className="text-xl font-black mb-6 text-slate-100">{editingEmployee?.id ? 'Editar' : 'Novo'} Colaborador</h3>
             <form onSubmit={(e) => handleSaveEmployee(e, true)} className="space-y-4">
-              <input required value={editingEmployee?.name || ''} onChange={e => setEditingEmployee({...editingEmployee, name: e.target.value})} placeholder="Nome Completo" className="w-full p-4 bg-slate-800 border border-slate-700 rounded-2xl text-white outline-none" />
+              <input required value={editingEmployee?.name || ''} onChange={e => setEditingEmployee({...editingEmployee, name: e.target.value})} placeholder="Nome Completo" className="w-full p-4 bg-slate-800 border border-slate-700 rounded-2xl text-white outline-none focus:ring-2 focus:ring-indigo-500" />
               <div className="grid grid-cols-2 gap-4">
-                <select required value={editingEmployee?.categoryId || ''} onChange={e => setEditingEmployee({...editingEmployee, categoryId: e.target.value})} className="w-full p-4 bg-slate-800 border border-slate-700 rounded-2xl text-white outline-none">
+                <select required value={editingEmployee?.categoryId || ''} onChange={e => setEditingEmployee({...editingEmployee, categoryId: e.target.value})} className="w-full p-4 bg-slate-800 border border-slate-700 rounded-2xl text-white outline-none focus:ring-2 focus:ring-indigo-500">
                   <option value="">Categoria...</option>
                   {props.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
-                <select required value={editingEmployee?.environmentId || ''} onChange={e => setEditingEmployee({...editingEmployee, environmentId: e.target.value})} className="w-full p-4 bg-slate-800 border border-slate-700 rounded-2xl text-white outline-none">
-                  <option value="">Ambiente...</option>
+                <select required value={editingEmployee?.environmentId || ''} onChange={e => setEditingEmployee({...editingEmployee, environmentId: e.target.value})} className="w-full p-4 bg-slate-800 border border-slate-700 rounded-2xl text-white outline-none focus:ring-2 focus:ring-indigo-500">
+                  <option value="">Ambiente Base...</option>
                   {props.environments.map(en => <option key={en.id} value={en.id}>{en.name}</option>)}
                 </select>
               </div>
-              <select required value={editingEmployee?.status || 'Ativo'} onChange={e => setEditingEmployee({...editingEmployee, status: e.target.value as EmployeeStatus})} className="w-full p-4 bg-slate-800 border border-slate-700 rounded-2xl text-white outline-none">
+              <select required value={editingEmployee?.status || 'Ativo'} onChange={e => setEditingEmployee({...editingEmployee, status: e.target.value as EmployeeStatus})} className="w-full p-4 bg-slate-800 border border-slate-700 rounded-2xl text-white outline-none focus:ring-2 focus:ring-indigo-500">
                 <option value="Ativo">Ativo</option>
                 <option value="Férias">Férias</option>
                 <option value="Atestado">Atestado</option>
               </select>
               <div className="pt-6 flex gap-3">
-                <button type="button" onClick={() => setShowEmployeeModal(false)} className="flex-1 py-4 bg-slate-800 text-slate-400 font-bold rounded-2xl">Cancelar</button>
-                <button type="submit" className="flex-1 py-4 bg-indigo-600 text-white font-black text-sm uppercase rounded-2xl">Salvar</button>
+                <button type="button" onClick={() => setShowEmployeeModal(false)} className="flex-1 py-4 bg-slate-800 text-slate-400 font-bold rounded-2xl hover:bg-slate-700 transition-colors">Cancelar</button>
+                <button type="submit" className="flex-1 py-4 bg-indigo-600 text-white font-black text-sm uppercase rounded-2xl hover:bg-indigo-500 transition-all">Salvar</button>
               </div>
             </form>
           </div>
