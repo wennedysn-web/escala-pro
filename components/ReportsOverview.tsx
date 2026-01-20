@@ -90,17 +90,19 @@ const ReportsOverview: React.FC<Props> = ({ employees, environments, categories,
             text-transform: uppercase;
           }
           .stat-card {
-            border: 2px solid #000;
-            padding: 15px;
+            border: 1.5px solid #000;
+            padding: 8px;
             text-align: center;
           }
           .stat-value {
-            font-size: 24px;
+            font-size: 18px;
             font-weight: 900;
             display: block;
+            line-height: 1;
+            margin-bottom: 2px;
           }
           .stat-label {
-            font-size: 10px;
+            font-size: 9px;
             text-transform: uppercase;
             font-weight: 700;
             color: #000;
@@ -120,13 +122,13 @@ const ReportsOverview: React.FC<Props> = ({ employees, environments, categories,
         `}</style>
 
         {/* Cabeçalho do Relatório */}
-        <div className="text-center border-b-4 border-black pb-6 mb-8">
-          <h1 className="text-3xl font-black uppercase tracking-tighter">Resumo Administrativo do Sistema</h1>
-          <p className="text-sm font-bold mt-2 uppercase">EscalaPro v2.0 &bull; Relatório emitido em {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}</p>
+        <div className="text-center border-b-4 border-black pb-4 mb-6">
+          <h1 className="text-2xl font-black uppercase tracking-tighter">Resumo Administrativo do Sistema</h1>
+          <p className="text-xs font-bold mt-1 uppercase">EscalaPro v2.0 &bull; Relatório emitido em {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}</p>
         </div>
 
-        {/* Grade de Estatísticas */}
-        <div className="grid grid-cols-4 gap-4 mb-10">
+        {/* Grade de Estatísticas Compacta */}
+        <div className="grid grid-cols-4 gap-3 mb-4">
           <div className="stat-card">
             <span className="stat-value">{environments.length}</span>
             <span className="stat-label">Ambientes</span>
@@ -145,22 +147,19 @@ const ReportsOverview: React.FC<Props> = ({ employees, environments, categories,
           </div>
         </div>
 
-        {/* Resumo de Status */}
-        <div className="mb-10">
-          <h3 className="text-lg font-black uppercase border-b-2 border-black mb-4">Distribuição de Status</h3>
-          <div className="flex gap-10">
-            <div className="flex items-center">
-              <span className="w-3 h-3 bg-emerald-500 border border-black mr-2"></span>
-              <span className="text-xs font-bold uppercase">Ativos: {activeCount}</span>
-            </div>
-            <div className="flex items-center">
-              <span className="w-3 h-3 bg-amber-500 border border-black mr-2"></span>
-              <span className="text-xs font-bold uppercase">Férias: {vacationCount}</span>
-            </div>
-            <div className="flex items-center">
-              <span className="w-3 h-3 bg-rose-500 border border-black mr-2"></span>
-              <span className="text-xs font-bold uppercase">Atestado/Afastado: {leaveCount}</span>
-            </div>
+        {/* Distribuição de Status Compacta integrada à área superior */}
+        <div className="grid grid-cols-3 gap-3 mb-8">
+          <div className="stat-card" style={{ borderColor: '#10b981' }}>
+            <span className="stat-value" style={{ color: '#047857' }}>{activeCount}</span>
+            <span className="stat-label">Ativos</span>
+          </div>
+          <div className="stat-card" style={{ borderColor: '#f59e0b' }}>
+            <span className="stat-value" style={{ color: '#b45309' }}>{vacationCount}</span>
+            <span className="stat-label">Férias</span>
+          </div>
+          <div className="stat-card" style={{ borderColor: '#ef4444' }}>
+            <span className="stat-value" style={{ color: '#b91c1c' }}>{leaveCount}</span>
+            <span className="stat-label">Atestado</span>
           </div>
         </div>
 
