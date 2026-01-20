@@ -54,7 +54,7 @@ const MuralPreview: React.FC<Props> = ({ employees, schedules, environments, hol
                 value={selectedYear}
                 onChange={e => setSelectedYear(parseInt(e.target.value))}
               >
-                {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
+                {[2024, 2025, 2026, 2027, 2028].map(y => <option key={y} value={y}>{y}</option>)}
               </select>
             </div>
           </div>
@@ -114,6 +114,7 @@ const MuralPreview: React.FC<Props> = ({ employees, schedules, environments, hol
             border: 2px solid #000;
             padding: 12px 16px;
             text-align: left;
+            color: black !important;
           }
           .mural-table th {
             background-color: #eee;
@@ -134,9 +135,10 @@ const MuralPreview: React.FC<Props> = ({ employees, schedules, environments, hol
           .mural-category-label {
             font-size: 11px;
             text-transform: uppercase;
-            color: #666;
+            color: #444 !important;
             margin-bottom: 4px;
             display: block;
+            font-weight: 900;
           }
         `}</style>
 
@@ -185,16 +187,16 @@ const MuralPreview: React.FC<Props> = ({ employees, schedules, environments, hol
                         return (
                           <div key={cat.id}>
                             <span className="mural-category-label">{cat.name}</span>
-                            <div className="flex flex-wrap gap-x-6 gap-y-2">
-                              {catEmployees.map(e => (
-                                <span key={e.id} className="text-2xl font-black block">{e.name}</span>
-                              ))}
+                            <div className="text-2xl font-black text-black leading-tight">
+                              {catEmployees.map(e => e.name).join(' - ')}
                             </div>
                           </div>
                         );
                       })}
                       {envEmployees.length === 0 && (
-                        <span className="text-slate-400 italic text-xl">Sem Escala Definida</span>
+                        <div className="text-center w-full">
+                          <span className="text-slate-600 italic text-xl font-bold">Sem Escala Definida</span>
+                        </div>
                       )}
                     </div>
                   </td>
@@ -210,7 +212,7 @@ const MuralPreview: React.FC<Props> = ({ employees, schedules, environments, hol
 
         <div className="mt-20 flex justify-between items-end">
           <div className="w-1/3 border-t-4 border-black pt-4 text-center">
-            <span className="text-sm font-black uppercase">Visto Direção</span>
+            <span className="text-sm font-black uppercase">Visto Gerência</span>
           </div>
           <div className="text-right">
              <p className="text-xs font-black uppercase">Documento Oficial de Escala</p>
