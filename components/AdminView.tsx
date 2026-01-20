@@ -289,7 +289,7 @@ const AdminView: React.FC<Props> = (props) => {
                     <td className="py-4 text-xs text-slate-400">{props.categories.find(c => c.id === emp.categoryId)?.name || '-'}</td>
                     <td className="py-4 text-xs text-slate-400">{props.environments.find(e => e.id === emp.environmentId)?.name || '-'}</td>
                     <td className="py-4">
-                      <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-lg ${emp.status === 'Ativo' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-800 text-slate-500'}`}>
+                      <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-lg ${emp.status === 'Ativo' ? 'bg-emerald-500/10 text-emerald-400' : emp.status === 'Férias' ? 'bg-amber-500/10 text-amber-400' : 'bg-rose-500/10 text-rose-400'}`}>
                         {emp.status}
                       </span>
                     </td>
@@ -342,6 +342,21 @@ const AdminView: React.FC<Props> = (props) => {
                   </select>
                 </div>
               </div>
+              
+              <div>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Status do Colaborador</label>
+                <select 
+                  required 
+                  value={editingEmployee?.status || 'Ativo'} 
+                  onChange={e => setEditingEmployee({...editingEmployee, status: e.target.value as EmployeeStatus})} 
+                  className="w-full p-4 bg-slate-800 border border-slate-700 rounded-2xl text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="Ativo">Ativo</option>
+                  <option value="Férias">Férias</option>
+                  <option value="Atestado">Atestado</option>
+                </select>
+              </div>
+
               <div className="pt-6 flex space-x-3">
                 <button type="button" onClick={() => setShowEmployeeModal(false)} className="flex-1 py-4 bg-slate-800 text-slate-400 font-bold rounded-2xl hover:bg-slate-700 transition">Cancelar</button>
                 <button type="submit" className="flex-1 py-4 bg-indigo-600 text-white font-black text-sm uppercase tracking-widest rounded-2xl shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition">Salvar</button>
