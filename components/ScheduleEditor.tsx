@@ -56,7 +56,6 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
           employee_id: empId
         }]);
       }
-      // Notificamos o estado global, mas o recálculo pesado deixamos para o handleConfirm (efetivação)
       await refreshData();
     } catch (err: any) {
       console.error("Erro na sincronização:", err);
@@ -68,7 +67,6 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
     setIsConfirming(true);
     
     try {
-      // EFETIVAÇÃO: Ao clicar em sincronizar, o sistema roda a auditoria para atualizar os contadores de todos
       await recalculateAllEmployeeCounters(employees, holidays);
       await refreshData();
       
@@ -93,6 +91,17 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
   const formatCounter = (count: number | undefined | null) => {
     if (count === undefined || count === null) return '0';
     return count > 10 ? '>10' : count.toString();
+  };
+
+  // Lógica de cores por prioridade (Imagem do Usuário)
+  const getPriorityClasses = (count: number | undefined | null) => {
+    const val = count ?? 0;
+    if (val === 0) return 'bg-red-500/10 border-red-500/50 text-red-500';
+    if (val === 1) return 'bg-orange-500/10 border-orange-500/50 text-orange-500';
+    if (val === 2) return 'bg-amber-400/10 border-amber-400/50 text-amber-400';
+    if (val === 3) return 'bg-lime-400/10 border-lime-400/50 text-lime-400';
+    if (val === 4) return 'bg-emerald-400/10 border-emerald-400/50 text-emerald-400';
+    return 'bg-green-500/10 border-green-500/50 text-green-500';
   };
 
   return (
@@ -222,12 +231,12 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
                     </div>
                     <div className="flex gap-2">
                       {isDaySunday && (
-                        <div className={`flex items-center px-1.5 py-0.5 rounded-lg border text-[9px] font-black ${e.consecutiveSundaysOff >= 10 ? 'bg-amber-500/10 border-amber-500/30 text-amber-500' : 'bg-slate-900/40 border-slate-700 text-slate-500'}`}>
+                        <div className={`flex items-center px-1.5 py-0.5 rounded-lg border text-[9px] font-black ${getPriorityClasses(e.consecutiveSundaysOff)}`}>
                           <span className="opacity-50 mr-1">D:</span> {formatCounter(e.consecutiveSundaysOff)}
                         </div>
                       )}
                       {!!holidayInfo && (
-                        <div className={`flex items-center px-1.5 py-0.5 rounded-lg border text-[9px] font-black ${e.consecutiveHolidaysOff >= 10 ? 'bg-rose-500/10 border-rose-500/30 text-rose-500' : 'bg-slate-900/40 border-slate-700 text-slate-500'}`}>
+                        <div className={`flex items-center px-1.5 py-0.5 rounded-lg border text-[9px] font-black ${getPriorityClasses(e.consecutiveHolidaysOff)}`}>
                           <span className="opacity-50 mr-1">F:</span> {formatCounter(e.consecutiveHolidaysOff)}
                         </div>
                       )}
