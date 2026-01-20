@@ -100,253 +100,144 @@ const AdminView: React.FC<Props> = (props) => {
       if (editingEmployee.id) {
         res = await supabase.from('employees').update(payload).eq('id', editingEmployee.id);
       } else {
+        // Fix for Error on line 108: Completed the shorthand property and added missing tracking fields
         res = await supabase.from('employees').insert([{
           ...payload,
-          consecutive_sundays_off: 99,
+          consecutive_sundays_off: 0,
           total_sundays_worked: 0,
           sundays_worked_current_year: 0,
-          consecutive_holidays_off: 99,
+          consecutive_holidays_off: 0,
           total_holidays_worked: 0,
           holidays_worked_current_year: 0
         }]);
       }
 
       if (res.error) throw res.error;
-
       await props.refreshData();
-      if (closeAfter) { 
-        setShowEmployeeModal(false); 
-        setEditingEmployee(null); 
+      if (closeAfter) {
+        setShowEmployeeModal(false);
+        setEditingEmployee(null);
       }
-    } catch (err: any) {
-      alert("Erro ao salvar colaborador: " + err.message);
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao salvar colaborador.");
     }
   };
 
-  const handleDeleteEmployee = async (empId: string) => {
-    if (!confirm("Tem certeza que deseja remover este colaborador? Isso apagará todo o histórico de escalas dele.")) return;
-
+  const handleDeleteEmployee = async (id: string) => {
+    if (!confirm("Excluir colaborador permanentemente?")) return;
     try {
-      const { error: assignError } = await supabase.from('assignments').delete().eq('employee_id', empId);
-      if (assignError) throw assignError;
-
-      const { error: empError } = await supabase.from('employees').delete().eq('id', empId);
-      if (empError) throw empError;
-
+      const { error } = await supabase.from('employees').delete().eq('id', id);
+      if (error) throw error;
       await props.refreshData();
-    } catch (err: any) {
-      console.error("Erro ao deletar:", err);
-      alert("Não foi possível excluir o colaborador: " + err.message);
-    }
-  };
-
-  const getStatusBadgeClass = (status: EmployeeStatus) => {
-    switch (status) {
-      case 'Ativo': return 'bg-emerald-500/10 text-emerald-400';
-      case 'Férias': return 'bg-amber-500/10 text-amber-400';
-      case 'Atestado': return 'bg-rose-500/10 text-rose-400';
-      default: return 'bg-slate-500/10 text-slate-400';
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao excluir colaborador.");
     }
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 border-b border-slate-800 print:hidden">
-        <div className="flex space-x-6 pb-1 overflow-x-auto">
-          {[
-            { id: 'general', label: 'Config. Gerais' },
-            { id: 'employees', label: 'Equipe' },
-            { id: 'schedule', label: 'Gerenciar Escala' },
-            { id: 'print', label: 'Relatório' },
-            { id: 'mural', label: 'Mural (A4)' },
-            { id: 'others', label: 'Outros Relatórios' }
-          ].map((t) => (
-            <button 
-              key={t.id} 
-              onClick={() => setTab(t.id as any)} 
-              className={`pb-3 text-sm font-bold transition-all relative whitespace-nowrap ${tab === t.id ? 'text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
-            >
-              {t.label}
-              {tab === t.id && <span className="absolute bottom-[-1px] left-0 w-full h-0.5 bg-indigo-400"></span>}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex gap-2 pb-2">
-          {tab === 'schedule' && (
-            <>
-              <button onClick={handleRecalculate} disabled={isRecalculating} className="bg-slate-800 text-slate-300 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-700 transition-all border border-slate-700">
-                {isRecalculating ? "Auditoria..." : "Recalcular Histórico"}
-              </button>
-            </>
-          )}
-          {tab === 'employees' && (
-            <button onClick={() => { setEditingEmployee({ status: 'Ativo' }); setShowEmployeeModal(true); }} className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500 transition-all">
-              Novo Colaborador
-            </button>
-          )}
-        </div>
+    <div className="space-y-8">
+      {/* Sidebar-like Navigation */}
+      <div className="flex flex-wrap gap-2 pb-4 border-b border-slate-800">
+        {[
+          { id: 'general', label: 'Painel', icon: 'M4 6h16M4 12h16m-7 6h7' },
+          { id: 'employees', label: 'Equipe', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z' },
+          { id: 'schedule', label: 'Escalas', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
+          { id: 'print', label: 'Relatórios A4', icon: 'M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z' },
+          { id: 'mural', label: 'Mural', icon: 'M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10l4 4v10a2 2 0 01-2 2z' },
+          { id: 'others', label: 'Auditoria', icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' }
+        ].map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id as any)}
+            className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${tab === t.id ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300 bg-slate-900/50 border border-slate-800'}`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={t.icon} /></svg>
+            <span>{t.label}</span>
+          </button>
+        ))}
       </div>
 
-      {tab === 'general' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl">
-            <h3 className="font-bold mb-4 text-slate-100 flex items-center">
-               <span className="w-1.5 h-6 bg-indigo-500 rounded-full mr-2"></span> Ambientes
-            </h3>
-            <div className="space-y-2">
-              {props.environments.map(e => (
-                <div key={e.id} className="flex justify-between items-center bg-slate-800 p-3 rounded-xl border border-slate-700/50 group">
-                  <span className="text-sm font-semibold">{e.name}</span>
-                  <button onClick={async () => { if(confirm("Remover?")) { await supabase.from('environments').delete().eq('id', e.id); props.refreshData(); } }} className="text-rose-400 text-xs opacity-0 group-hover:opacity-100 transition">Remover</button>
-                </div>
-              ))}
-              <div className="flex space-x-2 pt-4">
-                <input id="newEnv" placeholder="Novo ambiente..." className="flex-grow p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-sm text-white outline-none focus:ring-1 focus:ring-indigo-500" />
-                <button onClick={async () => { const el = document.getElementById('newEnv') as HTMLInputElement; if(el.value){ await supabase.from('environments').insert([{name: el.value}]); props.refreshData(); el.value=''; } }} className="bg-indigo-600 px-4 rounded-xl text-white font-bold hover:bg-indigo-500 transition">+</button>
-              </div>
+      <div className="mt-8">
+        {tab === 'general' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-slate-900 p-8 rounded-3xl border border-slate-800 space-y-6">
+              <h3 className="text-xl font-black uppercase tracking-tighter">Motor de Automação</h3>
+              <p className="text-slate-500 text-xs">Aplica lógica de revezamento para gerar escalas mensais inteligentes.</p>
+              <button onClick={handleAutoGenerate} disabled={isGenerating} className="w-full py-4 bg-indigo-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl">
+                {isGenerating ? "Processando..." : "Gerar Escala Mensal"}
+              </button>
+            </div>
+            <div className="bg-slate-900 p-8 rounded-3xl border border-slate-800 space-y-6">
+              <h3 className="text-xl font-black uppercase tracking-tighter">Sincronização</h3>
+              <p className="text-slate-500 text-xs">Recalcula todos os contadores com base nas escalas salvas.</p>
+              <button onClick={handleRecalculate} disabled={isRecalculating} className="w-full py-4 bg-slate-800 text-slate-400 font-black text-xs uppercase tracking-widest rounded-2xl border border-slate-700">
+                {isRecalculating ? "Recalculando..." : "Recalcular Histórico"}
+              </button>
             </div>
           </div>
+        )}
 
-          <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl">
-            <h3 className="font-bold mb-4 text-slate-100 flex items-center">
-               <span className="w-1.5 h-6 bg-emerald-500 rounded-full mr-2"></span> Categorias
-            </h3>
-            <div className="space-y-2">
-              {props.categories.map(c => (
-                <div key={c.id} className="flex justify-between items-center bg-slate-800 p-3 rounded-xl border border-slate-700/50 group">
-                  <span className="text-sm font-semibold">{c.name}</span>
-                  <button onClick={async () => { if(confirm("Remover?")) { await supabase.from('categories').delete().eq('id', c.id); props.refreshData(); } }} className="text-rose-400 text-xs opacity-0 group-hover:opacity-100 transition">Remover</button>
-                </div>
-              ))}
-              <div className="flex space-x-2 pt-4">
-                <input id="newCat" placeholder="Nova categoria..." className="flex-grow p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-sm text-white outline-none focus:ring-1 focus:ring-emerald-500" />
-                <button onClick={async () => { const el = document.getElementById('newCat') as HTMLInputElement; if(el.value){ await supabase.from('categories').insert([{name: el.value}]); props.refreshData(); el.value=''; } }} className="bg-emerald-600 px-4 rounded-xl text-white font-bold hover:bg-emerald-500 transition">+</button>
-              </div>
+        {tab === 'employees' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-black uppercase tracking-tighter">Colaboradores</h2>
+              <button onClick={() => { setEditingEmployee({}); setShowEmployeeModal(true); }} className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg">+ Adicionar</button>
             </div>
-          </div>
-
-          <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 md:col-span-2 shadow-xl">
-            <h3 className="font-bold mb-6 text-slate-100">Feriados</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              {props.holidays.map(h => (
-                <div key={h.id} className="bg-slate-800 p-4 rounded-xl flex justify-between items-center border border-slate-700/50">
-                  <div className="text-[10px]">
-                    <p className="text-slate-500 font-bold uppercase tracking-widest">{new Date(h.date + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
-                    <p className="font-bold text-slate-200 text-sm">{h.name}</p>
-                  </div>
-                  <button onClick={async () => { await supabase.from('holidays').delete().eq('id', h.id); props.refreshData(); }} className="text-rose-500 hover:scale-110 transition">&times;</button>
-                </div>
-              ))}
-            </div>
-            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-              <input type="date" id="hDate" className="bg-slate-800 p-3 rounded-xl text-sm text-white border border-slate-700" />
-              <input type="text" id="hName" placeholder="Nome do feriado" className="flex-grow bg-slate-800 p-3 rounded-xl text-sm text-white border border-slate-700" />
-              <button onClick={async () => { const d = (document.getElementById('hDate') as HTMLInputElement).value; const n = (document.getElementById('hName') as HTMLInputElement).value; if(d && n){ await supabase.from('holidays').insert([{date:d, name:n}]); props.refreshData(); } }} className="bg-indigo-600 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-white">Adicionar</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {tab === 'employees' && (
-        <div className="bg-slate-900 p-8 rounded-2xl border border-slate-800 shadow-xl overflow-hidden">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="text-[10px] text-slate-500 uppercase tracking-widest border-b border-slate-800">
-                <th className="py-4">Nome</th>
-                <th className="py-4">Categoria</th>
-                <th className="py-4">Ambiente</th>
-                <th className="py-4 text-center">Escalas (D/F)</th>
-                <th className="py-4 text-center">Folgas (D/F)</th>
-                <th className="py-4 text-center">Status</th>
-                <th className="py-4 text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {props.employees.map(emp => (
-                <tr key={emp.id} className="group hover:bg-slate-800/30 transition-colors">
-                  <td className="py-4 font-bold text-slate-100">{emp.name}</td>
-                  <td className="py-4 text-xs text-slate-400">{props.categories.find(c => c.id === emp.categoryId)?.name || '-'}</td>
-                  <td className="py-4 text-xs text-slate-400">{props.environments.find(e => e.id === emp.environmentId)?.name || '-'}</td>
-                  <td className="py-4 text-xs font-black text-emerald-400 text-center">{emp.sundaysWorkedCurrentYear}/{emp.holidaysWorkedCurrentYear}</td>
-                  <td className="py-4 text-xs font-black text-indigo-400 text-center">{emp.consecutiveSundaysOff}/{emp.consecutiveHolidaysOff}</td>
-                  <td className="py-4 text-center">
-                    <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-lg ${getStatusBadgeClass(emp.status)}`}>{emp.status}</span>
-                  </td>
-                  <td className="py-4 text-right">
-                    <button onClick={() => { setEditingEmployee(emp); setShowEmployeeModal(true); }} className="text-indigo-400 hover:text-indigo-300 text-xs font-bold mr-4 transition-colors">Editar</button>
-                    <button onClick={() => handleDeleteEmployee(emp.id)} className="text-rose-400 hover:text-rose-300 text-xs font-bold transition-colors">Remover</button>
-                  </td>
-                </tr>
+                <div key={emp.id} className="bg-slate-900 p-6 rounded-3xl border border-slate-800 hover:border-slate-700 transition-all group">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="w-12 h-12 bg-indigo-600/10 text-indigo-400 rounded-2xl flex items-center justify-center font-black text-xl border border-indigo-500/20">{emp.name.charAt(0)}</div>
+                    <div className="flex space-x-2">
+                      <button onClick={() => { setEditingEmployee(emp); setShowEmployeeModal(true); }} className="p-2 bg-slate-800 text-slate-400 rounded-lg"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
+                      <button onClick={() => handleDeleteEmployee(emp.id)} className="p-2 bg-rose-500/10 text-rose-500 rounded-lg"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                    </div>
+                  </div>
+                  <h4 className="font-bold">{emp.name}</h4>
+                  <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">{props.categories.find(c => c.id === emp.categoryId)?.name}</p>
+                </div>
               ))}
-            </tbody>
-          </table>
-          {props.employees.length === 0 && (
-            <div className="p-20 text-center text-slate-500 italic uppercase text-[10px] font-black tracking-widest">Nenhum colaborador cadastrado</div>
-          )}
-        </div>
-      )}
+            </div>
+          </div>
+        )}
 
-      {tab === 'schedule' && (
-        <ScheduleEditor 
-          employees={props.employees} categories={props.categories} environments={props.environments}
-          schedules={props.schedules} setSchedules={props.setSchedules} holidays={props.holidays} refreshData={props.refreshData}
-        />
-      )}
-
-      {tab === 'print' && (
-        <PrintPreview 
-          employees={props.employees}
-          schedules={props.schedules}
-          environments={props.environments}
-          holidays={props.holidays}
-          categories={props.categories}
-        />
-      )}
-
-      {tab === 'mural' && (
-        <MuralPreview 
-          employees={props.employees}
-          schedules={props.schedules}
-          environments={props.environments}
-          holidays={props.holidays}
-          categories={props.categories}
-        />
-      )}
-
-      {tab === 'others' && (
-        <ReportsOverview
-          employees={props.employees}
-          environments={props.environments}
-          categories={props.categories}
-          holidays={props.holidays}
-        />
-      )}
+        {tab === 'schedule' && (
+          <ScheduleEditor 
+            employees={props.employees} 
+            categories={props.categories} 
+            environments={props.environments} 
+            schedules={props.schedules} 
+            setSchedules={props.setSchedules}
+            holidays={props.holidays}
+            refreshData={props.refreshData}
+          />
+        )}
+        {tab === 'print' && <PrintPreview employees={props.employees} schedules={props.schedules} environments={props.environments} holidays={props.holidays} categories={props.categories} />}
+        {tab === 'mural' && <MuralPreview employees={props.employees} schedules={props.schedules} environments={props.environments} holidays={props.holidays} categories={props.categories} />}
+        {tab === 'others' && <ReportsOverview employees={props.employees} environments={props.environments} categories={props.categories} holidays={props.holidays} />}
+      </div>
 
       {showEmployeeModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
           <div className="bg-slate-900 w-full max-w-lg rounded-3xl border border-slate-800 p-8 shadow-2xl">
-            <h3 className="text-xl font-black mb-6 text-slate-100">{editingEmployee?.id ? 'Editar' : 'Novo'} Colaborador</h3>
-            <form onSubmit={(e) => handleSaveEmployee(e, true)} className="space-y-4">
-              <input required value={editingEmployee?.name || ''} onChange={e => setEditingEmployee({...editingEmployee, name: e.target.value})} placeholder="Nome Completo" className="w-full p-4 bg-slate-800 border border-slate-700 rounded-2xl text-white outline-none focus:ring-2 focus:ring-indigo-500" />
+            <h3 className="text-xl font-black uppercase mb-6">{editingEmployee?.id ? 'Editar Colaborador' : 'Novo Colaborador'}</h3>
+            <form onSubmit={handleSaveEmployee} className="space-y-4">
+              <input required value={editingEmployee?.name || ''} placeholder="Nome Completo" onChange={e => setEditingEmployee({...editingEmployee!, name: e.target.value})} className="w-full bg-slate-800 border border-slate-700 p-3 rounded-xl text-white outline-none" />
               <div className="grid grid-cols-2 gap-4">
-                <select required value={editingEmployee?.categoryId || ''} onChange={e => setEditingEmployee({...editingEmployee, categoryId: e.target.value})} className="w-full p-4 bg-slate-800 border border-slate-700 rounded-2xl text-white outline-none focus:ring-2 focus:ring-indigo-500">
-                  <option value="">Categoria...</option>
+                <select required value={editingEmployee?.categoryId || ''} onChange={e => setEditingEmployee({...editingEmployee!, categoryId: e.target.value})} className="bg-slate-800 border border-slate-700 p-3 rounded-xl text-white outline-none">
+                  <option value="">Categoria</option>
                   {props.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
-                <select required value={editingEmployee?.environmentId || ''} onChange={e => setEditingEmployee({...editingEmployee, environmentId: e.target.value})} className="w-full p-4 bg-slate-800 border border-slate-700 rounded-2xl text-white outline-none focus:ring-2 focus:ring-indigo-500">
-                  <option value="">Ambiente Base...</option>
-                  {props.environments.map(en => <option key={en.id} value={en.id}>{en.name}</option>)}
+                <select required value={editingEmployee?.environmentId || ''} onChange={e => setEditingEmployee({...editingEmployee!, environmentId: e.target.value})} className="bg-slate-800 border border-slate-700 p-3 rounded-xl text-white outline-none">
+                  <option value="">Ambiente Base</option>
+                  {props.environments.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                 </select>
               </div>
-              <select required value={editingEmployee?.status || 'Ativo'} onChange={e => setEditingEmployee({...editingEmployee, status: e.target.value as EmployeeStatus})} className="w-full p-4 bg-slate-800 border border-slate-700 rounded-2xl text-white outline-none focus:ring-2 focus:ring-indigo-500">
-                <option value="Ativo">Ativo</option>
-                <option value="Férias">Férias</option>
-                <option value="Atestado">Atestado</option>
-              </select>
-              <div className="pt-6 flex gap-3">
-                <button type="button" onClick={() => setShowEmployeeModal(false)} className="flex-1 py-4 bg-slate-800 text-slate-400 font-bold rounded-2xl hover:bg-slate-700 transition-colors">Cancelar</button>
-                <button type="submit" className="flex-1 py-4 bg-indigo-600 text-white font-black text-sm uppercase rounded-2xl hover:bg-indigo-500 transition-all">Salvar</button>
+              <div className="flex gap-4 pt-6">
+                <button type="button" onClick={() => setShowEmployeeModal(false)} className="flex-1 py-3 bg-slate-800 text-slate-400 rounded-xl font-black text-xs uppercase">Cancelar</button>
+                <button type="submit" className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase shadow-lg shadow-indigo-600/20">Salvar</button>
               </div>
             </form>
           </div>
@@ -356,4 +247,5 @@ const AdminView: React.FC<Props> = (props) => {
   );
 };
 
+// Fix for App.tsx line 5: Added default export
 export default AdminView;

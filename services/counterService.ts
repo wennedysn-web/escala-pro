@@ -5,9 +5,6 @@ import { Employee, Holiday, Environment } from '../types';
 /**
  * Função de Auditoria: Sincroniza metadados de feriados e reconstrói os contadores 
  * baseando-se no histórico real de assignments e no estado atual dos feriados.
- * 
- * MELHORIA: Um dia (Domingo/Feriado) é considerado para o cálculo se existir 
- * na tabela de schedules, independente de quantos ambientes foram preenchidos.
  */
 export const recalculateAllEmployeeCounters = async (employees: Employee[], holidays: Holiday[]) => {
   // 1. Sincronizar a tabela de 'schedules' com os 'holidays' atuais para garantir integridade
@@ -70,13 +67,12 @@ export const recalculateAllEmployeeCounters = async (employees: Employee[], holi
 
   const updatedEmployees = employees.map(emp => {
     let lastSun: string | null = null;
-    // Iniciamos com um valor alto (1000) para garantir prioridade máxima a novos funcionários
-    let sunOff = 1000; 
+    let sunOff = 0; // Inicia em 0 para refletir o contador real do sistema
     let sunTotal = 0;
     let sunCurrentYear = 0;
 
     let lastHol: string | null = null;
-    let holOff = 1000;
+    let holOff = 0;
     let holTotal = 0;
     let holCurrentYear = 0;
 
@@ -94,7 +90,7 @@ export const recalculateAllEmployeeCounters = async (employees: Employee[], holi
           sunTotal++;
           if (isTargetYear) sunCurrentYear++;
         } else {
-          // Incrementa folga consecutiva (mesmo se nunca trabalhou, ele está acumulando "prioridade")
+          // Incrementa folga consecutiva real
           sunOff++;
         }
       }
@@ -124,7 +120,7 @@ export const recalculateAllEmployeeCounters = async (employees: Employee[], holi
     };
   });
 
-  // 4. Salvar atualizações em lote (sequencial para evitar race conditions no Supabase Free)
+  // 4. Salvar atualizações em lote
   for (const emp of updatedEmployees) {
     await supabase.from('employees').update({
       last_sunday_worked: emp.lastSundayWorked,
