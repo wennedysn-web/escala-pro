@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Employee, Category, Environment, DaySchedule, Holiday } from '../types';
 import { formatDateDisplay, isSunday, getLocalDateString } from '../utils/dateUtils';
 import { supabase } from '../lib/supabase';
@@ -21,6 +21,10 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
   const [isConfirming, setIsConfirming] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   
+  // Estados para o Modal de Checklist
+  const [isChecklistOpen, setIsChecklistOpen] = useState(false);
+  const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
+
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedEnvironments, setSelectedEnvironments] = useState<string[]>([]);
 
@@ -31,6 +35,11 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
   const currentDaySchedule = schedules.find(s => s.date === activeDate) || { date: activeDate, assignments: [] };
   const assignments = currentDaySchedule.assignments || [];
   const currentEnvAssigned = assignments.find(a => a.environmentId === activeEnv)?.employeeIds || [];
+
+  // Categorias que possuem funcionários escalados no ambiente/dia atual
+  const activeCategories = categories.filter(cat => 
+    currentEnvAssigned.some(id => employees.find(e => e.id === id)?.categoryId === cat.id)
+  );
 
   const toggleEmployee = async (empId: string) => {
     if (!isSpecial) return;
@@ -62,9 +71,29 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
     }
   };
 
-  const handleConfirm = async () => {
+  const openConfirmation = () => {
     if (!isSpecial) return;
+    if (currentEnvAssigned.length === 0) {
+      alert("Selecione ao menos um colaborador para sincronizar.");
+      return;
+    }
+    
+    // Resetar checklist
+    const initialChecklist: Record<string, boolean> = {
+      date: false,
+      environment: false
+    };
+    activeCategories.forEach(cat => {
+      initialChecklist[`cat_${cat.id}`] = false;
+    });
+    
+    setCheckedItems(initialChecklist);
+    setIsChecklistOpen(true);
+  };
+
+  const handleFinalConfirm = async () => {
     setIsConfirming(true);
+    setIsChecklistOpen(false);
     
     try {
       await recalculateAllEmployeeCounters(employees, holidays);
@@ -103,8 +132,98 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
     return 'bg-green-500/10 border-green-500/50 text-green-500';
   };
 
+  const isChecklistComplete = () => {
+    const requiredKeys = ['date', 'environment', ...activeCategories.map(cat => `cat_${cat.id}`)];
+    return requiredKeys.every(key => checkedItems[key]);
+  };
+
+  const toggleCheckItem = (key: string) => {
+    setCheckedItems(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const currentEnvName = environments.find(e => e.id === activeEnv)?.name || '';
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 relative">
+      {/* Modal de Checklist */}
+      {isChecklistOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-slate-900 w-full max-w-lg rounded-3xl border border-slate-800 p-8 shadow-2xl overflow-hidden relative">
+            <div className="absolute top-0 left-0 w-full h-1 bg-indigo-600"></div>
+            
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h3 className="text-xl font-black text-slate-100 uppercase tracking-tighter">Conferência de Escala</h3>
+                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-1">Valide todos os itens antes de finalizar</p>
+              </div>
+              <button onClick={() => setIsChecklistOpen(false)} className="text-slate-500 hover:text-white transition-colors">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+              {/* Item: Data */}
+              <label className={`flex items-start p-4 rounded-2xl border transition-all cursor-pointer group ${checkedItems['date'] ? 'bg-indigo-600/10 border-indigo-500/50' : 'bg-slate-800 border-slate-700 hover:border-slate-500'}`}>
+                <input type="checkbox" checked={checkedItems['date'] || false} onChange={() => toggleCheckItem('date')} className="mt-1 w-5 h-5 rounded border-slate-700 text-indigo-600 focus:ring-indigo-500 bg-slate-900" />
+                <div className="ml-4">
+                  <span className="block text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-slate-400">Data da Escala</span>
+                  <span className="text-sm font-bold text-white">{formatDateDisplay(activeDate)}</span>
+                </div>
+              </label>
+
+              {/* Item: Ambiente */}
+              <label className={`flex items-start p-4 rounded-2xl border transition-all cursor-pointer group ${checkedItems['environment'] ? 'bg-indigo-600/10 border-indigo-500/50' : 'bg-slate-800 border-slate-700 hover:border-slate-500'}`}>
+                <input type="checkbox" checked={checkedItems['environment'] || false} onChange={() => toggleCheckItem('environment')} className="mt-1 w-5 h-5 rounded border-slate-700 text-indigo-600 focus:ring-indigo-500 bg-slate-900" />
+                <div className="ml-4">
+                  <span className="block text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-slate-400">Ambiente Alvo</span>
+                  <span className="text-sm font-bold text-white">{currentEnvName}</span>
+                </div>
+              </label>
+
+              {/* Itens: Categorias */}
+              <div className="pt-2 border-t border-slate-800 space-y-4">
+                <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] ml-2">Colaboradores por Categoria</p>
+                {activeCategories.map(cat => {
+                  const catEmps = currentEnvAssigned
+                    .map(id => employees.find(e => e.id === id))
+                    .filter(e => e?.categoryId === cat.id);
+                  
+                  return (
+                    <label key={cat.id} className={`flex items-start p-4 rounded-2xl border transition-all cursor-pointer group ${checkedItems[`cat_${cat.id}`] ? 'bg-indigo-600/10 border-indigo-500/50' : 'bg-slate-800 border-slate-700 hover:border-slate-500'}`}>
+                      <input type="checkbox" checked={checkedItems[`cat_${cat.id}`] || false} onChange={() => toggleCheckItem(`cat_${cat.id}`)} className="mt-1 w-5 h-5 rounded border-slate-700 text-indigo-600 focus:ring-indigo-500 bg-slate-900" />
+                      <div className="ml-4">
+                        <span className="block text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-slate-400">{cat.name}</span>
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {catEmps.map(e => (
+                            <span key={e?.id} className="text-[10px] font-bold text-slate-300">{e?.name}</span>
+                          ))}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mt-8 flex gap-4">
+              <button 
+                onClick={() => setIsChecklistOpen(false)}
+                className="flex-1 py-4 bg-slate-800 text-slate-400 font-bold rounded-2xl hover:bg-slate-700 transition-colors text-xs uppercase tracking-widest"
+              >
+                Corrigir
+              </button>
+              <button 
+                onClick={handleFinalConfirm}
+                disabled={!isChecklistComplete()}
+                className={`flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${isChecklistComplete() ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}
+              >
+                Confirmar Escala
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Lado Esquerdo: Categorias de Escala */}
       <div className="lg:col-span-4 bg-slate-900 p-6 rounded-3xl border border-slate-800 flex flex-col h-fit">
         <div className="flex flex-col mb-6 gap-4 border-b border-slate-800 pb-6">
@@ -157,9 +276,9 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
 
         <div className="mt-auto pt-4 flex justify-center">
           <button 
-            onClick={handleConfirm} 
-            disabled={isConfirming || !isSpecial} 
-            className={`w-full py-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${!isSpecial ? 'bg-slate-800 text-slate-600' : showSuccess ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white shadow-lg'}`}
+            onClick={openConfirmation} 
+            disabled={isConfirming || !isSpecial || currentEnvAssigned.length === 0} 
+            className={`w-full py-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${!isSpecial || currentEnvAssigned.length === 0 ? 'bg-slate-800 text-slate-600' : showSuccess ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white shadow-lg'}`}
           >
             {isConfirming ? "Sincronizando..." : showSuccess ? "Dia Sincronizado!" : "Sincronizar Dia"}
           </button>
