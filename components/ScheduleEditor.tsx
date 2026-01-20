@@ -93,7 +93,6 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
     return count > 10 ? '>10' : count.toString();
   };
 
-  // Lógica de cores por prioridade (Imagem do Usuário)
   const getPriorityClasses = (count: number | undefined | null) => {
     const val = count ?? 0;
     if (val === 0) return 'bg-red-500/10 border-red-500/50 text-red-500';
@@ -167,10 +166,10 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
         </div>
       </div>
 
-      {/* Lado Direito: Colaboradores Disponíveis */}
+      {/* Lado Direito: Colaboradores */}
       <div className="lg:col-span-8 bg-slate-900 p-8 rounded-3xl border border-slate-800 flex flex-col h-fit">
         <div className="flex justify-between items-center mb-8 border-b border-slate-800 pb-6">
-          <h3 className="text-slate-100 font-black text-lg uppercase tracking-widest">Colaboradores Disponíveis</h3>
+          <h3 className="text-slate-100 font-black text-lg uppercase tracking-widest">Colaboradores</h3>
         </div>
 
         {/* Filtros Horizontais */}
@@ -208,26 +207,34 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
         <div className={`${!isSpecial ? 'opacity-20 pointer-events-none' : ''}`}>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {employees
-              .filter(e => e.status === 'Ativo')
               .filter(e => selectedCategories.length === 0 || selectedCategories.includes(e.categoryId))
               .filter(e => selectedEnvironments.length === 0 || selectedEnvironments.includes(e.environmentId))
               .map(e => {
+                const isInactive = e.status !== 'Ativo';
                 const isUsedHere = currentEnvAssigned.includes(e.id);
                 const isUsedElsewhere = assignedIds.includes(e.id) && !isUsedHere;
                 
                 return (
                   <button 
                     key={e.id}
-                    onClick={() => !isUsedElsewhere && isSpecial && toggleEmployee(e.id)}
-                    disabled={isUsedElsewhere || !isSpecial}
-                    className={`text-left p-4 rounded-2xl transition-all border group ${
-                      isUsedHere ? 'bg-indigo-600 border-indigo-400 text-white' : 
-                      isUsedElsewhere ? 'bg-slate-800/30 border-transparent opacity-50 cursor-not-allowed' : 
-                      'bg-slate-800 border-slate-700 hover:border-indigo-500 hover:bg-slate-800/80'
+                    onClick={() => !isUsedElsewhere && !isInactive && isSpecial && toggleEmployee(e.id)}
+                    disabled={isUsedElsewhere || isInactive || !isSpecial}
+                    className={`text-left p-4 rounded-2xl transition-all border group relative ${
+                      isUsedHere ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg' : 
+                      isUsedElsewhere ? 'bg-slate-800/30 border-slate-700/30 opacity-40 cursor-not-allowed grayscale' : 
+                      isInactive ? 'bg-slate-900 border-slate-800 border-dashed opacity-40 cursor-not-allowed grayscale' :
+                      'bg-slate-800 border-slate-700 hover:border-indigo-500 hover:bg-slate-800/80 shadow-sm'
                     }`}
                   >
                     <div className="flex justify-between items-start mb-2">
                       <span className="font-black text-sm truncate pr-2">{e.name}</span>
+                      {isInactive && (
+                        <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded-lg border flex-shrink-0 ${
+                          e.status === 'Férias' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-rose-500/20 text-rose-400 border-rose-500/30'
+                        }`}>
+                          {e.status}
+                        </span>
+                      )}
                     </div>
                     <div className="flex gap-2">
                       {isDaySunday && (
@@ -241,6 +248,9 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
                         </div>
                       )}
                     </div>
+                    {isInactive && (
+                      <div className="absolute inset-0 bg-slate-950/5 pointer-events-none rounded-2xl"></div>
+                    )}
                   </button>
                 );
               })}
