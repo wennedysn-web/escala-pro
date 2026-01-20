@@ -34,11 +34,6 @@ export interface Employee {
   lastHolidayWorked?: string | null;
   consecutiveHolidaysOff: number;
   totalHolidaysWorked: number;
-
-  // CamposLegado (manter para compatibilidade durante migração se necessário)
-  lastSpecialDayWorked?: string | null;
-  consecutiveSpecialDaysOff?: number;
-  totalSpecialDaysWorked?: number;
 }
 
 export interface ScheduleAssignment {

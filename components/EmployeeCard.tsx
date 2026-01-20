@@ -24,15 +24,17 @@ const EmployeeCard: React.FC<Props> = ({ employee }) => {
       <div className="space-y-4 relative z-10">
         <div className="flex justify-between items-center text-xs">
           <span className="text-slate-500 font-medium">Último Especial:</span>
-          <span className={`font-black uppercase tracking-tighter ${employee.lastSpecialDayWorked ? 'text-slate-300' : 'text-amber-500 italic'}`}>
-            {employee.lastSpecialDayWorked ? new Date(employee.lastSpecialDayWorked + 'T00:00:00').toLocaleDateString('pt-BR') : 'Inédito'}
+          {/* Fix: Changed lastSpecialDayWorked to lastSundayWorked to match Employee type */}
+          <span className={`font-black uppercase tracking-tighter ${employee.lastSundayWorked ? 'text-slate-300' : 'text-amber-500 italic'}`}>
+            {employee.lastSundayWorked ? new Date(employee.lastSundayWorked + 'T00:00:00').toLocaleDateString('pt-BR') : 'Inédito'}
           </span>
         </div>
         
         <div className="flex justify-between items-center text-xs">
           <span className="text-slate-500 font-medium">Folgas acumuladas:</span>
           <div className="flex items-center space-x-1.5">
-            <span className="font-black text-indigo-400 text-base leading-none">{employee.consecutiveSpecialDaysOff}</span>
+            {/* Fix: Changed consecutiveSpecialDaysOff to consecutiveSundaysOff to match Employee type */}
+            <span className="font-black text-indigo-400 text-base leading-none">{employee.consecutiveSundaysOff}</span>
             <span className="text-[10px] font-black uppercase text-slate-600 tracking-tighter">unidades</span>
           </div>
         </div>
@@ -40,12 +42,14 @@ const EmployeeCard: React.FC<Props> = ({ employee }) => {
         <div className="space-y-2">
            <div className="flex justify-between items-end">
              <span className="text-[10px] font-black uppercase text-slate-600 tracking-widest">Comprometimento</span>
-             <span className="text-[10px] font-black text-indigo-500">{employee.totalSpecialDaysWorked} participações</span>
+             {/* Fix: Changed totalSpecialDaysWorked to totalSundaysWorked to match Employee type */}
+             <span className="text-[10px] font-black text-indigo-500">{employee.totalSundaysWorked} participações</span>
            </div>
            <div className="w-full bg-slate-800 rounded-full h-1.5 shadow-inner">
             <div 
               className="bg-indigo-500 h-1.5 rounded-full transition-all duration-700 shadow-[0_0_10px_rgba(99,102,241,0.4)]" 
-              style={{ width: `${Math.min(employee.totalSpecialDaysWorked * 5, 100)}%` }}
+              /* Fix: Changed totalSpecialDaysWorked to totalSundaysWorked to match Employee type */
+              style={{ width: `${Math.min(employee.totalSundaysWorked * 5, 100)}%` }}
             ></div>
           </div>
         </div>
