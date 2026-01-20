@@ -178,9 +178,6 @@ const AdminView: React.FC<Props> = (props) => {
               <button onClick={handleRecalculate} disabled={isRecalculating} className="bg-slate-800 text-slate-300 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-700 transition-all border border-slate-700">
                 {isRecalculating ? "Auditoria..." : "Recalcular Histórico"}
               </button>
-              <button onClick={handleAutoGenerate} disabled={isGenerating} className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20">
-                {isGenerating ? "Gerando..." : "Gerar Escala Mensal"}
-              </button>
             </>
           )}
           {tab === 'employees' && (
