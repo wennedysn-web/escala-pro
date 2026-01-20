@@ -101,7 +101,8 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
     setSelectedEnvironments([]);
   };
 
-  const formatCounter = (count: number) => {
+  const formatCounter = (count: number | undefined | null) => {
+    if (count === undefined || count === null) return '0';
     return count > 10 ? '>10' : count.toString();
   };
 
@@ -273,11 +274,11 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
 
                       {/* Contadores de Escala */}
                       <div className="flex gap-2 mb-3">
-                         <div className={`flex items-center px-1.5 py-0.5 rounded-lg border text-[9px] font-black ${e.consecutiveSundaysOff >= 10 ? 'bg-amber-500/10 border-amber-500/30 text-amber-500' : 'bg-slate-900/40 border-slate-700 text-slate-500'}`}>
+                         <div className={`flex items-center px-1.5 py-0.5 rounded-lg border text-[9px] font-black ${(e.consecutiveSundaysOff ?? 0) >= 10 ? 'bg-amber-500/10 border-amber-500/30 text-amber-500' : 'bg-slate-900/40 border-slate-700 text-slate-500'}`}>
                             <span className="opacity-50 mr-1">D:</span>
                             {formatCounter(e.consecutiveSundaysOff)}
                          </div>
-                         <div className={`flex items-center px-1.5 py-0.5 rounded-lg border text-[9px] font-black ${e.consecutiveHolidaysOff >= 10 ? 'bg-rose-500/10 border-rose-500/30 text-rose-500' : 'bg-slate-900/40 border-slate-700 text-slate-500'}`}>
+                         <div className={`flex items-center px-1.5 py-0.5 rounded-lg border text-[9px] font-black ${(e.consecutiveHolidaysOff ?? 0) >= 10 ? 'bg-rose-500/10 border-rose-500/30 text-rose-500' : 'bg-slate-900/40 border-slate-700 text-slate-500'}`}>
                             <span className="opacity-50 mr-1">F:</span>
                             {formatCounter(e.consecutiveHolidaysOff)}
                          </div>
