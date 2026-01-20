@@ -107,9 +107,10 @@ const AdminView: React.FC<Props> = (props) => {
       } else {
         await supabase.from('employees').insert([{
           ...payload,
-          consecutive_sundays_off: 0,
+          // Inicializa com 99 para garantir que quem nunca trabalhou seja priorizado e mostre ">10"
+          consecutive_sundays_off: 99,
           total_sundays_worked: 0,
-          consecutive_holidays_off: 0,
+          consecutive_holidays_off: 99,
           total_holidays_worked: 0
         }]);
       }
