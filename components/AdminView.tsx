@@ -127,11 +127,9 @@ const AdminView: React.FC<Props> = (props) => {
     if (!confirm("Tem certeza que deseja remover este colaborador? Isso apagará todo o histórico de escalas dele.")) return;
 
     try {
-      // 1. Remove dependências na tabela de atribuições (evita erro de chave estrangeira)
       const { error: assignError } = await supabase.from('assignments').delete().eq('employee_id', empId);
       if (assignError) throw assignError;
 
-      // 2. Remove o colaborador
       const { error: empError } = await supabase.from('employees').delete().eq('id', empId);
       if (empError) throw empError;
 
@@ -261,6 +259,7 @@ const AdminView: React.FC<Props> = (props) => {
                 <th className="py-4">Nome</th>
                 <th className="py-4">Categoria</th>
                 <th className="py-4">Ambiente</th>
+                <th className="py-4 text-center">Escalas (D/F)</th>
                 <th className="py-4 text-center">Folgas (D/F)</th>
                 <th className="py-4 text-center">Status</th>
                 <th className="py-4 text-right">Ações</th>
@@ -272,6 +271,7 @@ const AdminView: React.FC<Props> = (props) => {
                   <td className="py-4 font-bold text-slate-100">{emp.name}</td>
                   <td className="py-4 text-xs text-slate-400">{props.categories.find(c => c.id === emp.categoryId)?.name || '-'}</td>
                   <td className="py-4 text-xs text-slate-400">{props.environments.find(e => e.id === emp.environmentId)?.name || '-'}</td>
+                  <td className="py-4 text-xs font-black text-emerald-400 text-center">{emp.sundaysWorkedCurrentYear}/{emp.holidaysWorkedCurrentYear}</td>
                   <td className="py-4 text-xs font-black text-indigo-400 text-center">{emp.consecutiveSundaysOff}/{emp.consecutiveHolidaysOff}</td>
                   <td className="py-4 text-center">
                     <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-lg ${getStatusBadgeClass(emp.status)}`}>{emp.status}</span>
