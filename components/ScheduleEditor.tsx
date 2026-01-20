@@ -29,7 +29,8 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
   const isSpecial = isDaySunday || !!holidayInfo;
 
   const currentDaySchedule = schedules.find(s => s.date === activeDate) || { date: activeDate, assignments: [] };
-  const currentEnvAssigned = currentDaySchedule.assignments.find(a => a.environmentId === activeEnv)?.employeeIds || [];
+  const assignments = currentDaySchedule.assignments || [];
+  const currentEnvAssigned = assignments.find(a => a.environmentId === activeEnv)?.employeeIds || [];
 
   const toggleEmployee = async (empId: string) => {
     if (!isSpecial) return;
@@ -87,7 +88,7 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
     }).length;
   };
 
-  const assignedIds = currentDaySchedule.assignments.flatMap(a => a.employeeIds);
+  const assignedIds = assignments.flatMap(a => a.employeeIds || []);
 
   const formatCounter = (count: number | undefined | null) => {
     if (count === undefined || count === null) return '0';

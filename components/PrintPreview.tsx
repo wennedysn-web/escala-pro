@@ -131,8 +131,10 @@ const PrintPreview: React.FC<Props> = ({ employees, schedules, environments, hol
                     </div>
                   </td>
                   {environments.map(env => {
-                    const assignment = daySched?.assignments.find(a => a.environmentId === env.id);
-                    const envEmployees = assignment?.employeeIds
+                    const assignments = daySched?.assignments || [];
+                    const assignment = assignments.find(a => a.environmentId === env.id);
+                    const employeeIds = assignment?.employeeIds || [];
+                    const envEmployees = employeeIds
                       .map(id => employees.find(e => e.id === id))
                       .filter(Boolean) as Employee[];
 
