@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Category, Environment, Employee, Holiday, DaySchedule, EmployeeStatus } from '../types';
 import ScheduleEditor from './ScheduleEditor';
 import PrintPreview from './PrintPreview';
+import MuralPreview from './MuralPreview';
 import { generateSchedule } from '../services/schedulerEngine';
 import { recalculateAllEmployeeCounters } from '../services/counterService';
 import { supabase } from '../lib/supabase';
@@ -17,7 +18,7 @@ interface Props {
 }
 
 const AdminView: React.FC<Props> = (props) => {
-  const [tab, setTab] = useState<'general' | 'employees' | 'schedule' | 'print'>('general');
+  const [tab, setTab] = useState<'general' | 'employees' | 'schedule' | 'print' | 'mural'>('general');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
   const [showEmployeeModal, setShowEmployeeModal] = useState(false);
@@ -122,7 +123,8 @@ const AdminView: React.FC<Props> = (props) => {
             { id: 'general', label: 'Config. Gerais' },
             { id: 'employees', label: 'Equipe' },
             { id: 'schedule', label: 'Gerenciar Escala' },
-            { id: 'print', label: 'Impressão' }
+            { id: 'print', label: 'Relatório' },
+            { id: 'mural', label: 'Mural (A4)' }
           ].map((t) => (
             <button 
               key={t.id} 
@@ -259,6 +261,16 @@ const AdminView: React.FC<Props> = (props) => {
 
       {tab === 'print' && (
         <PrintPreview 
+          employees={props.employees}
+          schedules={props.schedules}
+          environments={props.environments}
+          holidays={props.holidays}
+          categories={props.categories}
+        />
+      )}
+
+      {tab === 'mural' && (
+        <MuralPreview 
           employees={props.employees}
           schedules={props.schedules}
           environments={props.environments}

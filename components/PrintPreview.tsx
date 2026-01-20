@@ -16,7 +16,14 @@ const PrintPreview: React.FC<Props> = ({ employees, schedules, environments, hol
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedEnvironmentId, setSelectedEnvironmentId] = useState<string>('all');
 
-  const days = getMonthDays(selectedYear, selectedMonth);
+  const allDays = getMonthDays(selectedYear, selectedMonth);
+  // FILTRO: Apenas domingos ou feriados
+  const days = allDays.filter(date => {
+    const isSun = isSunday(date);
+    const holiday = holidays.find(h => h.date === date);
+    return isSun || !!holiday;
+  });
+
   const monthLabel = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][selectedMonth];
 
   const handlePrint = () => {
@@ -124,13 +131,10 @@ const PrintPreview: React.FC<Props> = ({ employees, schedules, environments, hol
           .row-special {
             background-color: #f1f5f9;
           }
-          .env-column-single {
-            width: auto;
-          }
         `}</style>
 
         <div className="mb-6 text-center border-b-2 border-slate-900 pb-4">
-          <h1 className="text-xl font-black uppercase tracking-tighter">Escala de Trabalho</h1>
+          <h1 className="text-xl font-black uppercase tracking-tighter">Escala de Trabalho (D/F)</h1>
           <div className="flex justify-center gap-4 mt-1">
             <p className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">Mês: {monthLabel} / {selectedYear}</p>
             <p className="text-[10px] font-black text-indigo-700 uppercase tracking-widest">Ambiente: {selectedEnvName}</p>
@@ -200,6 +204,10 @@ const PrintPreview: React.FC<Props> = ({ employees, schedules, environments, hol
             })}
           </tbody>
         </table>
+
+        {days.length === 0 && (
+          <div className="py-20 text-center text-slate-400 italic">Nenhum dia especial encontrado para este mês.</div>
+        )}
 
         <div className="mt-10 grid grid-cols-2 gap-10 px-6">
           <div className="border-t border-black pt-2 text-center text-[9px] uppercase font-bold">Responsável pela Escala</div>
