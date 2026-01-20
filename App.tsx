@@ -5,10 +5,11 @@ import PublicView from './components/PublicView';
 import AdminView from './components/AdminView';
 import AdminLogin from './components/AdminLogin';
 import { supabase } from './lib/supabase';
+import { getLocalDateString } from './utils/dateUtils';
 
 const App: React.FC = () => {
   const [view, setView] = useState<'public' | 'admin'>('public');
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
   const [categories, setCategories] = useState<Category[]>([]);
@@ -18,16 +19,20 @@ const App: React.FC = () => {
   const [schedules, setSchedules] = useState<DaySchedule[]>([]);
 
   const fetchData = async () => {
-    setLoading(true);
     try {
       const [cats, envs, emps, hols, schs, assigns] = await Promise.all([
-        supabase.from('categories').select('*'),
-        supabase.from('environments').select('*'),
-        supabase.from('employees').select('*'),
-        supabase.from('holidays').select('*'),
+        supabase.from('categories').select('*').order('name'),
+        supabase.from('environments').select('*').order('name'),
+        supabase.from('employees').select('*').order('name'),
+        supabase.from('holidays').select('*').order('date'),
         supabase.from('schedules').select('*'),
         supabase.from('assignments').select('*')
       ]);
+
+      // Verificação robusta de erros do Supabase
+      if (cats.error || envs.error || emps.error || hols.error || schs.error || assigns.error) {
+        throw new Error("Falha ao carregar dados do banco de dados.");
+      }
 
       if (cats.data) setCategories(cats.data);
       if (envs.data) setEnvironments(envs.data);
@@ -41,7 +46,6 @@ const App: React.FC = () => {
       })));
       if (hols.data) setHolidays(hols.data);
       
-      // Reconstruir o objeto DaySchedule a partir das tabelas schedules e assignments
       if (schs.data && assigns.data) {
         const builtSchedules: DaySchedule[] = schs.data.map(s => {
           const dayAssigns = assigns.data.filter(a => a.date === s.date);
@@ -68,23 +72,28 @@ const App: React.FC = () => {
         setSchedules(builtSchedules);
       }
     } catch (error) {
-      console.error("Erro ao carregar dados do Supabase:", error);
-    } finally {
-      setLoading(false);
+      console.error("Erro ao carregar dados:", error);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    // Verificar sessão inicial
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      fetchData().then(() => setLoading(false));
+    });
+
+    // Escutar mudanças na autenticação
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const handleLogin = (user: string, pass: string) => {
-    if (user === 'admin' && pass === 'tododia') {
-      setIsLoggedIn(true);
-      setView('admin');
-      return true;
-    }
-    return false;
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setView('public');
   };
 
   if (loading) {
@@ -92,7 +101,7 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
           <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-slate-400 font-bold animate-pulse text-xs uppercase tracking-widest">Sincronizando com Supabase...</p>
+          <p className="text-slate-400 font-bold animate-pulse text-xs uppercase tracking-widest">Sincronizando Dados...</p>
         </div>
       </div>
     );
@@ -110,19 +119,33 @@ const App: React.FC = () => {
           <span className="font-black text-xl tracking-tighter uppercase">Escala<span className="text-indigo-500">Pro</span></span>
         </div>
         
-        <div className="flex space-x-1 bg-slate-800/50 p-1 rounded-2xl border border-slate-700/50">
-          <button 
-            onClick={() => setView('public')} 
-            className={`px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${view === 'public' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-          >
-            Escala Pública
-          </button>
-          <button 
-            onClick={() => setView('admin')} 
-            className={`px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${view === 'admin' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-          >
-            Administração
-          </button>
+        <div className="flex items-center space-x-4">
+          <div className="flex space-x-1 bg-slate-800/50 p-1 rounded-2xl border border-slate-700/50">
+            <button 
+              onClick={() => setView('public')} 
+              className={`px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${view === 'public' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+            >
+              Público
+            </button>
+            <button 
+              onClick={() => setView('admin')} 
+              className={`px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${view === 'admin' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+            >
+              Admin
+            </button>
+          </div>
+          
+          {session && view === 'admin' && (
+            <button 
+              onClick={handleLogout}
+              className="p-2.5 bg-rose-500/10 text-rose-500 rounded-xl border border-rose-500/20 hover:bg-rose-500/20 transition-colors"
+              title="Sair"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </button>
+          )}
         </div>
       </nav>
 
@@ -135,8 +158,8 @@ const App: React.FC = () => {
             holidays={holidays}
           />
         ) : (
-          !isLoggedIn ? (
-            <AdminLogin onLogin={handleLogin} />
+          !session ? (
+            <AdminLogin />
           ) : (
             <AdminView 
               categories={categories} setCategories={setCategories}
@@ -151,7 +174,7 @@ const App: React.FC = () => {
       </main>
       
       <footer className="mt-20 border-t border-slate-900 py-10 text-center">
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-700">EscalaPro & Supabase Cloud &bull; &copy; 2024</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-700">EscalaPro & Supabase Secure &bull; &copy; 2024</p>
       </footer>
     </div>
   );
