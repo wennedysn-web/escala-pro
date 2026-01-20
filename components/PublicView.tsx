@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Employee, DaySchedule, Environment, Holiday } from '../types';
+import { Employee, DaySchedule, Environment, Holiday, Category } from '../types';
 import { getMonthDays, formatDateDisplay, isSunday, formatWeekString } from '../utils/dateUtils';
 
 interface Props {
@@ -8,16 +8,15 @@ interface Props {
   schedules: DaySchedule[];
   environments: Environment[];
   holidays: Holiday[];
+  categories: Category[];
 }
 
-const PublicView: React.FC<Props> = ({ employees, schedules, environments, holidays }) => {
+const PublicView: React.FC<Props> = ({ employees, schedules, environments, holidays, categories }) => {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   const days = getMonthDays(selectedYear, selectedMonth);
   
-  const getEmployeeName = (id: string) => employees.find(e => e.id === id)?.name || 'Removido';
-
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -65,23 +64,48 @@ const PublicView: React.FC<Props> = ({ employees, schedules, environments, holid
                 {holiday && <span className="mt-3 px-2 py-1 bg-rose-500/20 text-rose-400 text-[9px] font-black rounded uppercase border border-rose-500/30">{holiday.name}</span>}
               </div>
               
-              <div className="flex-grow grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 p-6 gap-6">
+              <div className="flex-grow grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 p-6 gap-8">
                 {environments.map(env => {
                   const assignment = daySched.assignments.find(a => a.environmentId === env.id);
                   if (!assignment || assignment.employeeIds.length === 0) return null;
                   
+                  // Group employees in this environment by category
+                  const envEmployees = assignment.employeeIds
+                    .map(id => employees.find(e => e.id === id))
+                    .filter(Boolean) as Employee[];
+
+                  const categoriesInEnv = categories.filter(cat => 
+                    envEmployees.some(emp => emp.categoryId === cat.id)
+                  );
+
                   return (
-                    <div key={env.id} className="space-y-3">
-                      <h4 className="text-[10px] font-black uppercase text-indigo-400 tracking-wider flex items-center">
+                    <div key={env.id} className="space-y-4">
+                      <h4 className="text-[11px] font-black uppercase text-indigo-400 tracking-[0.1em] flex items-center">
                         <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full mr-2"></span>
                         {env.name}
                       </h4>
-                      <div className="flex flex-wrap gap-1.5">
-                        {assignment.employeeIds.map(id => (
-                          <span key={id} className="px-2.5 py-1 bg-slate-800 text-slate-200 rounded-lg text-xs font-semibold border border-slate-700 shadow-sm hover:bg-slate-700 transition cursor-default">
-                            {getEmployeeName(id)}
-                          </span>
-                        ))}
+                      
+                      <div className="space-y-3 pl-3 border-l border-slate-800">
+                        {categoriesInEnv.map(cat => {
+                          const catEmployees = envEmployees.filter(emp => emp.categoryId === cat.id);
+                          return (
+                            <div key={cat.id} className="space-y-2">
+                              <div className="flex items-center space-x-2">
+                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{cat.name}</span>
+                                <span className="text-[9px] font-black bg-slate-800/80 text-slate-400 px-1.5 py-0.5 rounded-md border border-slate-700/50">
+                                  {catEmployees.length}
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {catEmployees.map(e => (
+                                  <span key={e.id} className="px-2.5 py-1 bg-slate-800/50 text-slate-300 rounded-lg text-xs font-semibold border border-slate-700/50 shadow-sm hover:bg-slate-800 transition cursor-default">
+                                    {e.name}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   );

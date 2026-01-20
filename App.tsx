@@ -69,7 +69,7 @@ const App: React.FC = () => {
             date: s.date,
             isSunday: s.is_sunday,
             isHoliday: s.is_holiday,
-            holidayName: s.holiday_name,
+            holiday_name: s.holiday_name,
             assignments
           };
         });
@@ -158,6 +158,7 @@ const App: React.FC = () => {
             schedules={schedules} 
             environments={environments}
             holidays={holidays}
+            categories={categories}
           />
         ) : (
           !session ? (
