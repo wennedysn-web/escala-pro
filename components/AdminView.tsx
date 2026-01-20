@@ -104,6 +104,15 @@ const AdminView: React.FC<Props> = (props) => {
     } catch (err) { alert("Erro ao salvar."); }
   };
 
+  const getStatusBadgeClass = (status: EmployeeStatus) => {
+    switch (status) {
+      case 'Ativo': return 'bg-emerald-500/10 text-emerald-400';
+      case 'Férias': return 'bg-amber-500/10 text-amber-400';
+      case 'Atestado': return 'bg-rose-500/10 text-rose-400';
+      default: return 'bg-slate-500/10 text-slate-400';
+    }
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 border-b border-slate-800">
@@ -218,7 +227,7 @@ const AdminView: React.FC<Props> = (props) => {
                   <td className="py-4 text-xs font-black text-indigo-400">{emp.consecutiveSundaysOff}/{emp.consecutiveHolidaysOff}</td>
                   <td className="py-4 text-xs font-black text-emerald-400">D: {emp.sundaysWorkedCurrentYear} / F: {emp.holidaysWorkedCurrentYear}</td>
                   <td className="py-4">
-                    <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-lg ${emp.status === 'Ativo' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>{emp.status}</span>
+                    <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-lg ${getStatusBadgeClass(emp.status)}`}>{emp.status}</span>
                   </td>
                   <td className="py-4 text-right opacity-0 group-hover:opacity-100 transition-opacity">
                     <button onClick={() => { setEditingEmployee(emp); setShowEmployeeModal(true); }} className="text-indigo-400 text-xs font-bold mr-4">Editar</button>
@@ -257,6 +266,7 @@ const AdminView: React.FC<Props> = (props) => {
               <select required value={editingEmployee?.status || 'Ativo'} onChange={e => setEditingEmployee({...editingEmployee, status: e.target.value as EmployeeStatus})} className="w-full p-4 bg-slate-800 border border-slate-700 rounded-2xl text-white outline-none">
                 <option value="Ativo">Ativo</option>
                 <option value="Férias">Férias</option>
+                <option value="Atestado">Atestado</option>
               </select>
               <div className="pt-6 flex gap-3">
                 <button type="button" onClick={() => setShowEmployeeModal(false)} className="flex-1 py-4 bg-slate-800 text-slate-400 font-bold rounded-2xl">Cancelar</button>
