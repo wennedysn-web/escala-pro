@@ -95,9 +95,9 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-[75vh]">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
       {/* Lado Esquerdo: Categorias de Escala */}
-      <div className="lg:col-span-4 bg-slate-900 p-6 rounded-3xl border border-slate-800 flex flex-col overflow-hidden relative">
+      <div className="lg:col-span-4 bg-slate-900 p-6 rounded-3xl border border-slate-800 flex flex-col h-fit">
         <div className="flex flex-col mb-6 gap-4 border-b border-slate-800 pb-6">
           <div className="space-y-1">
             <h3 className="font-black text-xl text-slate-100">{formatDateDisplay(activeDate)}</h3>
@@ -115,14 +115,14 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
           </div>
         </div>
 
-        <div className="flex-grow overflow-y-auto pr-2">
+        <div className="mb-8">
           {!isSpecial && (
             <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl mb-4">
               <p className="text-[10px] text-amber-400 font-bold text-center">Edição apenas em Domingos ou Feriados.</p>
             </div>
           )}
 
-          <div className={`space-y-4 pb-20 ${!isSpecial ? 'opacity-30 pointer-events-none' : ''}`}>
+          <div className={`space-y-4 ${!isSpecial ? 'opacity-30 pointer-events-none' : ''}`}>
             {categories.map(cat => (
               <div key={cat.id} className="p-4 bg-slate-800/40 rounded-2xl border border-slate-800">
                 <div className="flex justify-between items-center mb-3">
@@ -146,11 +146,11 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
           </div>
         </div>
 
-        <div className="absolute bottom-0 left-0 w-full p-4 bg-slate-900 border-t border-slate-800 flex justify-center">
+        <div className="mt-auto pt-4 flex justify-center">
           <button 
             onClick={handleConfirm} 
             disabled={isConfirming || !isSpecial} 
-            className={`w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${!isSpecial ? 'bg-slate-800 text-slate-600' : showSuccess ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white shadow-lg'}`}
+            className={`w-full py-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${!isSpecial ? 'bg-slate-800 text-slate-600' : showSuccess ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white shadow-lg'}`}
           >
             {isConfirming ? "Sincronizando..." : showSuccess ? "Dia Sincronizado!" : "Sincronizar Dia"}
           </button>
@@ -158,7 +158,7 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
       </div>
 
       {/* Lado Direito: Colaboradores Disponíveis */}
-      <div className="lg:col-span-8 bg-slate-900 p-8 rounded-3xl border border-slate-800 flex flex-col overflow-hidden">
+      <div className="lg:col-span-8 bg-slate-900 p-8 rounded-3xl border border-slate-800 flex flex-col h-fit">
         <div className="flex justify-between items-center mb-8 border-b border-slate-800 pb-6">
           <h3 className="text-slate-100 font-black text-lg uppercase tracking-widest">Colaboradores Disponíveis</h3>
         </div>
@@ -195,7 +195,7 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
           </div>
         </div>
 
-        <div className={`flex-grow overflow-y-auto pr-2 ${!isSpecial ? 'opacity-20 pointer-events-none' : ''}`}>
+        <div className={`${!isSpecial ? 'opacity-20 pointer-events-none' : ''}`}>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {employees
               .filter(e => e.status === 'Ativo')
