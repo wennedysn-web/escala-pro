@@ -9,8 +9,11 @@ import { Employee, Holiday } from '../types';
  * 2. Se o colaborador trabalhou na última escala montada do tipo (D/F), o contador é obrigatoriamente 0.
  * 3. Se nunca trabalhou, o contador é 99 (Prioridade Máxima).
  * 4. O contador incrementa apenas quando uma escala montada ocorre e o colaborador não faz parte dela.
+ * 5. Agora rastreia também os trabalhados no ANO ATUAL.
  */
 export const recalculateAllEmployeeCounters = async (employees: Employee[], holidays: Holiday[]) => {
+  const currentYear = new Date().getFullYear().toString();
+
   // 1. Buscar TODAS as atribuições (assignments) para identificar dias realmente escalados
   const { data: allAssignments, error: assError } = await supabase
     .from('assignments')
@@ -37,13 +40,15 @@ export const recalculateAllEmployeeCounters = async (employees: Employee[], holi
 
   const updatedEmployees = employees.map(emp => {
     let lastSun: string | null = null;
-    let sunOff = 99; // Inicia com 99 (nunca trabalhou)
+    let sunOff = 99;
     let sunTotal = 0;
+    let sunCurrentYear = 0;
     let hasWorkedSun = false;
 
     let lastHol: string | null = null;
     let holOff = 99;
     let holTotal = 0;
+    let holCurrentYear = 0;
     let hasWorkedHol = false;
 
     // Filtra atribuições deste colaborador
@@ -55,19 +60,19 @@ export const recalculateAllEmployeeCounters = async (employees: Employee[], holi
 
     // Itera por todas as escalas cadastradas
     allSchedules.forEach(sch => {
-      // Ignora datas que não possuem ninguém escalado (escala não montada)
       if (!mountedDates.has(sch.date)) return;
 
       const worked = empAssigns.has(sch.date);
+      const isCurrentYear = sch.date.startsWith(currentYear);
 
       if (sch.is_sunday) {
         if (worked) {
           lastSun = sch.date;
-          sunOff = 0; // Trabalhou no último domingo montado -> Contador resetado
+          sunOff = 0;
           sunTotal++;
+          if (isCurrentYear) sunCurrentYear++;
           hasWorkedSun = true;
         } else {
-          // Só incrementa se ele já trabalhou no sistema alguma vez
           if (hasWorkedSun) {
             sunOff++;
           } else {
@@ -79,8 +84,9 @@ export const recalculateAllEmployeeCounters = async (employees: Employee[], holi
       if (sch.is_holiday) {
         if (worked) {
           lastHol = sch.date;
-          holOff = 0; // Trabalhou no último feriado montado -> Contador resetado
+          holOff = 0;
           holTotal++;
+          if (isCurrentYear) holCurrentYear++;
           hasWorkedHol = true;
         } else {
           if (hasWorkedHol) {
@@ -97,9 +103,11 @@ export const recalculateAllEmployeeCounters = async (employees: Employee[], holi
       lastSundayWorked: lastSun,
       consecutiveSundaysOff: sunOff,
       totalSundaysWorked: sunTotal,
+      sundaysWorkedCurrentYear: sunCurrentYear,
       lastHolidayWorked: lastHol,
       consecutiveHolidaysOff: holOff,
-      totalHolidaysWorked: holTotal
+      totalHolidaysWorked: holTotal,
+      holidaysWorkedCurrentYear: holCurrentYear
     };
   });
 
@@ -109,9 +117,11 @@ export const recalculateAllEmployeeCounters = async (employees: Employee[], holi
       last_sunday_worked: emp.lastSundayWorked,
       consecutive_sundays_off: emp.consecutiveSundaysOff,
       total_sundays_worked: emp.totalSundaysWorked,
+      sundays_worked_current_year: emp.sundaysWorkedCurrentYear,
       last_holiday_worked: emp.lastHolidayWorked,
       consecutive_holidays_off: emp.consecutiveHolidaysOff,
-      total_holidays_worked: emp.totalHolidaysWorked
+      total_holidays_worked: emp.totalHolidaysWorked,
+      holidays_worked_current_year: emp.holidaysWorkedCurrentYear
     }).eq('id', emp.id);
   }
 

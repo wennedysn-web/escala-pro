@@ -29,11 +29,13 @@ export interface Employee {
   lastSundayWorked?: string | null;
   consecutiveSundaysOff: number;
   totalSundaysWorked: number;
+  sundaysWorkedCurrentYear: number;
 
   // Rastreamento de Feriados
   lastHolidayWorked?: string | null;
   consecutiveHolidaysOff: number;
   totalHolidaysWorked: number;
+  holidaysWorkedCurrentYear: number;
 }
 
 export interface ScheduleAssignment {

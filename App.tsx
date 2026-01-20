@@ -40,12 +40,13 @@ const App: React.FC = () => {
         categoryId: e.category_id,
         environmentId: e.environment_id,
         lastSundayWorked: e.last_sunday_worked,
-        // Se for null ou undefined, assume 99 para priorizar quem nunca trabalhou
         consecutiveSundaysOff: e.consecutive_sundays_off ?? 99,
         totalSundaysWorked: e.total_sundays_worked ?? 0,
+        sundaysWorkedCurrentYear: e.sundays_worked_current_year ?? 0,
         lastHolidayWorked: e.last_holiday_worked,
         consecutiveHolidaysOff: e.consecutive_holidays_off ?? 99,
-        totalHolidaysWorked: e.total_holidays_worked ?? 0
+        totalHolidaysWorked: e.total_holidays_worked ?? 0,
+        holidaysWorkedCurrentYear: e.holidays_worked_current_year ?? 0
       })));
       if (hols.data) setHolidays(hols.data);
       

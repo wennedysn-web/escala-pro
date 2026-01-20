@@ -41,7 +41,6 @@ const AdminView: React.FC<Props> = (props) => {
     );
 
     try {
-      // 1. Salva escalas e atribuições
       for (const sch of newSchedules) {
         await supabase.from('schedules').upsert({
           date: sch.date,
@@ -62,7 +61,6 @@ const AdminView: React.FC<Props> = (props) => {
         }
       }
 
-      // 2. EFETIVAÇÃO: Recálculo automático de todos os contadores baseado no novo histórico
       await recalculateAllEmployeeCounters(props.employees, props.holidays);
       
       await props.refreshData();
@@ -95,8 +93,10 @@ const AdminView: React.FC<Props> = (props) => {
           ...payload,
           consecutive_sundays_off: 99,
           total_sundays_worked: 0,
+          sundays_worked_current_year: 0,
           consecutive_holidays_off: 99,
-          total_holidays_worked: 0
+          total_holidays_worked: 0,
+          holidays_worked_current_year: 0
         }]);
       }
       await props.refreshData();
@@ -204,6 +204,7 @@ const AdminView: React.FC<Props> = (props) => {
                 <th className="py-4">Categoria</th>
                 <th className="py-4">Ambiente</th>
                 <th className="py-4">Folgas (D/F)</th>
+                <th className="py-4">Trabalhados (Ano)</th>
                 <th className="py-4">Status</th>
                 <th className="py-4 text-right">Ações</th>
               </tr>
@@ -215,6 +216,7 @@ const AdminView: React.FC<Props> = (props) => {
                   <td className="py-4 text-xs text-slate-400">{props.categories.find(c => c.id === emp.categoryId)?.name || '-'}</td>
                   <td className="py-4 text-xs text-slate-400">{props.environments.find(e => e.id === emp.environmentId)?.name || '-'}</td>
                   <td className="py-4 text-xs font-black text-indigo-400">{emp.consecutiveSundaysOff}/{emp.consecutiveHolidaysOff}</td>
+                  <td className="py-4 text-xs font-black text-emerald-400">D: {emp.sundaysWorkedCurrentYear} / F: {emp.holidaysWorkedCurrentYear}</td>
                   <td className="py-4">
                     <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-lg ${emp.status === 'Ativo' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>{emp.status}</span>
                   </td>
