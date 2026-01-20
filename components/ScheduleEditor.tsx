@@ -20,7 +20,9 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
   const [activeEnv, setActiveEnv] = useState(environments[0]?.id || '');
   const [isConfirming, setIsConfirming] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedEnvironments, setSelectedEnvironments] = useState<string[]>([]);
 
   const currentDaySchedule = schedules.find(s => s.date === activeDate) || { date: activeDate, assignments: [] };
   const currentEnvAssigned = currentDaySchedule.assignments.find(a => a.environmentId === activeEnv)?.employeeIds || [];
@@ -35,7 +37,6 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
           .match({ date: activeDate, environment_id: activeEnv, employee_id: empId });
         if (error) throw error;
       } else {
-        // Upsert no schedule para garantir que metadados do dia existam
         const { error: schError } = await supabase.from('schedules').upsert({
           date: activeDate,
           is_sunday: isSunday(activeDate)
@@ -80,6 +81,17 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
     setSelectedCategories(prev => 
       prev.includes(catId) ? prev.filter(id => id !== catId) : [...prev, catId]
     );
+  };
+
+  const handleToggleEnvFilter = (envId: string) => {
+    setSelectedEnvironments(prev => 
+      prev.includes(envId) ? prev.filter(id => id !== envId) : [...prev, envId]
+    );
+  };
+
+  const clearFilters = () => {
+    setSelectedCategories([]);
+    setSelectedEnvironments([]);
   };
 
   return (
@@ -134,33 +146,52 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
       </div>
 
       <div className="lg:col-span-1 bg-slate-900 p-6 rounded-3xl border border-slate-800 flex flex-col overflow-hidden">
-        <h3 className="text-slate-100 font-black text-xs uppercase tracking-widest mb-4 border-b border-slate-800 pb-4">Disponíveis</h3>
+        <div className="flex justify-between items-center mb-4 border-b border-slate-800 pb-4">
+          <h3 className="text-slate-100 font-black text-xs uppercase tracking-widest">Disponíveis</h3>
+          {(selectedCategories.length > 0 || selectedEnvironments.length > 0) && (
+            <button onClick={clearFilters} className="text-[8px] font-black uppercase text-rose-400 hover:text-rose-300 transition">Limpar Filtros</button>
+          )}
+        </div>
         
-        {/* Filtro por Categorias */}
-        <div className="mb-4">
-          <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-2">Filtrar Categoria</p>
-          <div className="flex flex-wrap gap-1.5">
-            {categories.map(cat => (
-              <button
-                key={cat.id}
-                onClick={() => handleToggleCategoryFilter(cat.id)}
-                className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase transition-all border ${
-                  selectedCategories.includes(cat.id)
-                    ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg shadow-indigo-600/20'
-                    : 'bg-slate-800 border-slate-700 text-slate-500 hover:border-slate-500'
-                }`}
-              >
-                {cat.name}
-              </button>
-            ))}
-            {selectedCategories.length > 0 && (
-              <button 
-                onClick={() => setSelectedCategories([])}
-                className="px-2 py-1 rounded-lg text-[8px] font-black uppercase bg-slate-800 border border-slate-700 text-rose-400 hover:text-rose-300"
-              >
-                Limpar
-              </button>
-            )}
+        <div className="space-y-4 mb-4">
+          {/* Filtro por Categorias */}
+          <div>
+            <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-2">Filtrar Categoria</p>
+            <div className="flex flex-wrap gap-1.5">
+              {categories.map(cat => (
+                <button
+                  key={cat.id}
+                  onClick={() => handleToggleCategoryFilter(cat.id)}
+                  className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase transition-all border ${
+                    selectedCategories.includes(cat.id)
+                      ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg shadow-indigo-600/20'
+                      : 'bg-slate-800 border-slate-700 text-slate-500 hover:border-slate-500'
+                  }`}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Filtro por Ambientes */}
+          <div>
+            <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-2">Filtrar Ambiente Base</p>
+            <div className="flex flex-wrap gap-1.5">
+              {environments.map(env => (
+                <button
+                  key={env.id}
+                  onClick={() => handleToggleEnvFilter(env.id)}
+                  className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase transition-all border ${
+                    selectedEnvironments.includes(env.id)
+                      ? 'bg-emerald-600 border-emerald-400 text-white shadow-lg shadow-emerald-600/20'
+                      : 'bg-slate-800 border-slate-700 text-slate-500 hover:border-slate-500'
+                  }`}
+                >
+                  {env.name}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -168,6 +199,7 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
           {employees
             .filter(e => e.status === 'Ativo')
             .filter(e => selectedCategories.length === 0 || selectedCategories.includes(e.categoryId))
+            .filter(e => selectedEnvironments.length === 0 || selectedEnvironments.includes(e.environmentId))
             .map(e => {
               const isUsedHere = currentEnvAssigned.includes(e.id);
               const isUsedElsewhere = assignedIds.includes(e.id) && !isUsedHere;
@@ -191,8 +223,11 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
               );
             })}
           
-          {employees.filter(e => e.status === 'Ativo' && (selectedCategories.length === 0 || selectedCategories.includes(e.categoryId))).length === 0 && (
-            <p className="text-[10px] text-slate-600 italic text-center py-4">Nenhum disponível</p>
+          {employees.filter(e => e.status === 'Ativo' && 
+            (selectedCategories.length === 0 || selectedCategories.includes(e.categoryId)) &&
+            (selectedEnvironments.length === 0 || selectedEnvironments.includes(e.environmentId))
+          ).length === 0 && (
+            <p className="text-[10px] text-slate-600 italic text-center py-4">Nenhum disponível para os filtros atuais</p>
           )}
         </div>
       </div>

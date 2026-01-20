@@ -83,7 +83,7 @@ const AdminView: React.FC<Props> = (props) => {
     }
   };
 
-  const handleSaveEmployee = async (e: React.FormEvent, closeAfter: boolean = true) => {
+  const handleSaveEmployee = async (e: React.FormEvent | null, closeAfter: boolean = true) => {
     if (e) e.preventDefault();
     if (!editingEmployee?.name || !editingEmployee?.categoryId || !editingEmployee?.environmentId) {
       alert("Preencha todos os campos obrigatórios.");
@@ -114,13 +114,11 @@ const AdminView: React.FC<Props> = (props) => {
         setShowEmployeeModal(false);
         setEditingEmployee(null);
       } else {
-        // Reseta apenas o nome para facilitar criação em massa
         setEditingEmployee({
           ...editingEmployee,
           name: '',
-          id: undefined // Garante que o próximo será um Insert
+          id: undefined 
         });
-        // Opcional: focar o input de nome novamente
         const nameInput = document.getElementById('emp-name') as HTMLInputElement;
         if (nameInput) nameInput.focus();
       }
