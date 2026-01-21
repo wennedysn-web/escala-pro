@@ -9,6 +9,7 @@ import { recalculateAllEmployeeCounters } from '../services/counterService';
 import { supabase } from '../lib/supabase';
 
 interface Props {
+  userId: string;
   categories: Category[]; setCategories: any;
   environments: Environment[]; setEnvironments: any;
   employees: Employee[]; setEmployees: any;
@@ -24,7 +25,6 @@ const AdminView: React.FC<Props> = (props) => {
   const [editingEmployee, setEditingEmployee] = useState<Partial<Employee> | null>(null);
   const [empSearch, setEmpSearch] = useState('');
 
-  // Estados locais para inputs rápidos
   const [newEnvName, setNewEnvName] = useState('');
   const [newCatName, setNewCatName] = useState('');
   const [newHolDate, setNewHolDate] = useState('');
@@ -45,27 +45,37 @@ const AdminView: React.FC<Props> = (props) => {
 
   const handleAddEnvironment = async () => {
     if (!newEnvName) return;
-    const { error } = await supabase.from('environments').insert([{ name: newEnvName }]);
+    const { error } = await supabase.from('environments').insert([{ 
+      name: newEnvName, 
+      user_id: props.userId 
+    }]);
     if (error) alert("Erro ao adicionar ambiente");
     else { setNewEnvName(''); await props.refreshData(); }
   };
 
   const handleAddCategory = async () => {
     if (!newCatName) return;
-    const { error } = await supabase.from('categories').insert([{ name: newCatName }]);
+    const { error } = await supabase.from('categories').insert([{ 
+      name: newCatName, 
+      user_id: props.userId 
+    }]);
     if (error) alert("Erro ao adicionar categoria");
     else { setNewCatName(''); await props.refreshData(); }
   };
 
   const handleAddHoliday = async () => {
     if (!newHolDate || !newHolName) return;
-    const { error } = await supabase.from('holidays').insert([{ date: newHolDate, name: newHolName }]);
+    const { error } = await supabase.from('holidays').insert([{ 
+      date: newHolDate, 
+      name: newHolName, 
+      user_id: props.userId 
+    }]);
     if (error) alert("Erro ao adicionar feriado");
     else { setNewHolDate(''); setNewHolName(''); await props.refreshData(); }
   };
 
   const handleRemoveItem = async (table: string, id: string, name: string) => {
-    if (!confirm(`TEM CERTEZA que deseja EXCLUIR permanentemente "${name}"? Esta ação não pode ser desfeita.`)) return;
+    if (!confirm(`TEM CERTEZA que deseja EXCLUIR permanentemente "${name}"?`)) return;
     const { error } = await supabase.from(table).delete().eq('id', id);
     if (error) alert("Erro ao remover item");
     else await props.refreshData();
@@ -82,7 +92,8 @@ const AdminView: React.FC<Props> = (props) => {
       category_id: editingEmployee.categoryId,
       environment_id: editingEmployee.environmentId,
       status: editingEmployee.status || 'Ativo',
-      role: editingEmployee.role || ''
+      role: editingEmployee.role || '',
+      user_id: props.userId
     };
 
     try {
@@ -125,33 +136,22 @@ const AdminView: React.FC<Props> = (props) => {
     }
   };
 
-  const sortedEnvs = [...props.environments].sort((a,b) => b.name.localeCompare(a.name)); // Z-A
-  const sortedCats = [...props.categories].sort((a,b) => a.name.localeCompare(b.name)); // A-Z
+  const sortedEnvs = [...props.environments].sort((a,b) => b.name.localeCompare(a.name));
+  const sortedCats = [...props.categories].sort((a,b) => a.name.localeCompare(b.name));
   const filteredEmployees = props.employees
     .filter(e => e.name.toLowerCase().includes(empSearch.toLowerCase()))
-    .sort((a,b) => a.name.localeCompare(b.name)); // A-Z
+    .sort((a,b) => a.name.localeCompare(b.name));
 
   return (
     <div className="space-y-8">
-      {/* Loading Overlay Global para Operações Críticas */}
       {isRecalculating && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
           <div className="bg-slate-900 border border-slate-800 p-10 rounded-3xl shadow-2xl flex flex-col items-center space-y-6 max-w-sm text-center">
             <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin shadow-lg"></div>
             <div className="space-y-2">
               <h3 className="text-xl font-black uppercase tracking-tighter text-white">Recalculando Histórico</h3>
-              <p className="text-slate-500 text-xs font-bold uppercase tracking-widest leading-relaxed">Sincronizando todos os contadores e auditorias do sistema...</p>
+              <p className="text-slate-500 text-xs font-bold uppercase tracking-widest leading-relaxed">Sincronizando seus dados personalizados...</p>
             </div>
-            <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-               <div className="h-full bg-indigo-600 animate-[loading_2s_ease-in-out_infinite]"></div>
-            </div>
-            <style>{`
-              @keyframes loading {
-                0% { width: 0%; transform: translateX(-100%); }
-                50% { width: 70%; transform: translateX(50%); }
-                100% { width: 0%; transform: translateX(200%); }
-              }
-            `}</style>
           </div>
         </div>
       )}
@@ -183,7 +183,7 @@ const AdminView: React.FC<Props> = (props) => {
             <div className="grid grid-cols-1 gap-6">
               <div className="bg-slate-900 p-8 rounded-3xl border border-slate-800 space-y-6">
                 <h3 className="text-xl font-black uppercase tracking-tighter">Sincronização</h3>
-                <p className="text-slate-500 text-xs">Recalcula todos os contadores com base nas escalas salvas.</p>
+                <p className="text-slate-500 text-xs">Recalcula todos os contadores com base nas suas escalas salvas.</p>
                 <button onClick={handleRecalculate} disabled={isRecalculating} className="w-full max-w-sm py-4 bg-slate-800 text-slate-400 font-black text-xs uppercase tracking-widest rounded-2xl border border-slate-700 hover:bg-slate-700 transition-colors">
                   {isRecalculating ? "Recalculando..." : "Recalcular Histórico"}
                 </button>
@@ -191,7 +191,6 @@ const AdminView: React.FC<Props> = (props) => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Gerenciar Ambientes */}
               <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 flex flex-col">
                 <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center">
                   <span className="w-2 h-2 bg-indigo-500 rounded-full mr-2"></span> Ambientes
@@ -212,7 +211,6 @@ const AdminView: React.FC<Props> = (props) => {
                 </div>
               </div>
 
-              {/* Gerenciar Categorias */}
               <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 flex flex-col">
                 <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center">
                   <span className="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span> Categorias
@@ -233,7 +231,6 @@ const AdminView: React.FC<Props> = (props) => {
                 </div>
               </div>
 
-              {/* Gerenciar Feriados */}
               <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 flex flex-col">
                 <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center">
                   <span className="w-2 h-2 bg-rose-500 rounded-full mr-2"></span> Feriados
@@ -310,6 +307,7 @@ const AdminView: React.FC<Props> = (props) => {
 
         {tab === 'schedule' && (
           <ScheduleEditor 
+            userId={props.userId}
             employees={props.employees} 
             categories={props.categories} 
             environments={props.environments} 

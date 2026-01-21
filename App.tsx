@@ -23,7 +23,6 @@ const App: React.FC = () => {
     try {
       setDbError(null);
       
-      // Fetch data individually to handle missing tables gracefully
       const fetchTable = async (table: string, query: any = supabase.from(table).select('*')) => {
         try {
           const { data, error } = await query;
@@ -38,6 +37,7 @@ const App: React.FC = () => {
         }
       };
 
+      // Nota: Com RLS habilitado no Supabase, o select '*' já filtra automaticamente pelo user_id do usuário logado.
       const [cats, envs, emps, hols, schs, assigns] = await Promise.all([
         fetchTable('categories', supabase.from('categories').select('*').order('name', { ascending: true })),
         fetchTable('environments', supabase.from('environments').select('*').order('name', { ascending: false })),
@@ -47,10 +47,9 @@ const App: React.FC = () => {
         fetchTable('assignments', supabase.from('assignments').select('*'))
       ]);
 
-      // Critical tables - if these fail, we show an error
       if (cats.error || envs.error || emps.error) {
         const criticalError = cats.error?.message || envs.error?.message || emps.error?.message;
-        setDbError(`Erro em tabelas essenciais: ${criticalError}. Verifique se as tabelas existem no seu Supabase.`);
+        setDbError(`Erro de conexão. Verifique sua conta.`);
       }
 
       if (cats.data) setCategories(cats.data);
@@ -78,7 +77,6 @@ const App: React.FC = () => {
       
       if (hols.data) setHolidays(hols.data);
       
-      // Process schedules even if assignments fail (treat as empty)
       if (schs.data) {
         const safeAssignments = assigns.data || [];
         const builtSchedules: DaySchedule[] = schs.data.map((s: any) => {
@@ -110,7 +108,7 @@ const App: React.FC = () => {
 
     } catch (error: any) {
       console.error("Erro crítico ao carregar dados:", error);
-      setDbError(error.message || "Falha ao conectar com o servidor.");
+      setDbError("Falha ao conectar com o servidor.");
     } finally {
       setLoading(false);
     }
@@ -119,12 +117,21 @@ const App: React.FC = () => {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      fetchData();
+      if (session) fetchData();
+      else setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session) fetchData();
+      else {
+        setCategories([]);
+        setEnvironments([]);
+        setEmployees([]);
+        setHolidays([]);
+        setSchedules([]);
+        setLoading(false);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -140,7 +147,7 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
           <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-slate-400 font-bold animate-pulse text-xs uppercase tracking-widest">Sincronizando Dados...</p>
+          <p className="text-slate-400 font-bold animate-pulse text-xs uppercase tracking-widest">Sincronizando Seus Dados...</p>
         </div>
       </div>
     );
@@ -174,7 +181,7 @@ const App: React.FC = () => {
             </button>
           </div>
           
-          {session && view === 'admin' && (
+          {session && (
             <button 
               onClick={handleLogout}
               className="p-2.5 bg-rose-500/10 text-rose-500 rounded-xl border border-rose-500/20 hover:bg-rose-500/20 transition-colors"
@@ -194,7 +201,7 @@ const App: React.FC = () => {
             <div className="flex items-center gap-3">
               <svg className="w-6 h-6 text-rose-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
               <div className="text-left">
-                <p className="text-rose-400 font-bold text-sm">Problema detectado no banco de dados.</p>
+                <p className="text-rose-400 font-bold text-sm">Problema detectado.</p>
                 <p className="text-rose-500/70 text-xs font-medium">{dbError}</p>
               </div>
             </div>
@@ -222,6 +229,7 @@ const App: React.FC = () => {
             <AdminLogin />
           ) : (
             <AdminView 
+              userId={session.user.id}
               categories={categories} setCategories={setCategories}
               environments={environments} setEnvironments={setEnvironments}
               employees={employees} setEmployees={setEmployees}

@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 import { recalculateAllEmployeeCounters } from '../services/counterService';
 
 interface Props {
+  userId: string;
   employees: Employee[];
   categories: Category[];
   environments: Environment[];
@@ -15,14 +16,13 @@ interface Props {
   refreshData: () => Promise<void>;
 }
 
-const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, schedules, setSchedules, holidays, refreshData }) => {
+const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, environments, schedules, setSchedules, holidays, refreshData }) => {
   const [activeDate, setActiveDate] = useState(getLocalDateString());
   const [activeEnv, setActiveEnv] = useState(environments[0]?.id || '');
   const [isConfirming, setIsConfirming] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   
-  // Estados para o Modal de Checklist
   const [isChecklistOpen, setIsChecklistOpen] = useState(false);
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
 
@@ -42,7 +42,6 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
   const sortedEnvs = [...environments].sort((a,b) => b.name.localeCompare(a.name));
   const sortedCats = [...categories].sort((a,b) => a.name.localeCompare(b.name));
 
-  // Categorias que possuem funcionários escalados no ambiente/dia atual
   const activeCategories = sortedCats.filter(cat => 
     currentEnvAssigned.some(id => employees.find(e => e.id === id)?.categoryId === cat.id)
   );
@@ -56,21 +55,22 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
       if (isAlreadyAssigned) {
         await supabase.from('assignments')
           .delete()
-          .match({ date: activeDate, environment_id: activeEnv, employee_id: empId });
+          .match({ date: activeDate, environment_id: activeEnv, employee_id: empId, user_id: userId });
       } else {
         await supabase.from('schedules').upsert({
           date: activeDate,
           is_sunday: isDaySunday,
           is_holiday: !!holidayInfo,
-          holiday_name: holidayInfo?.name || null
+          holiday_name: holidayInfo?.name || null,
+          user_id: userId
         });
 
         await supabase.from('assignments').insert([{
           date: activeDate,
           environment_id: activeEnv,
-          employee_id: empId
+          employee_id: empId,
+          user_id: userId
         }]);
-        // Clear search when selecting/adding a collaborator
         setSearchTerm('');
       }
       await refreshData();
@@ -80,21 +80,15 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
   };
 
   const handleDeleteDaySchedule = async () => {
-    if (!confirm(`Tem certeza que deseja EXCLUIR TODA a escala do dia ${formatDateDisplay(activeDate)}? Isso resetará os contadores dos colaboradores envolvidos.`)) return;
+    if (!confirm(`Tem certeza que deseja EXCLUIR TODA a escala do dia ${formatDateDisplay(activeDate)}?`)) return;
 
     setIsDeleting(true);
     try {
-      // 1. Remover todos os assignments deste dia
-      await supabase.from('assignments').delete().eq('date', activeDate);
-      
-      // 2. Remover o registro do schedule
-      await supabase.from('schedules').delete().eq('date', activeDate);
-
-      // 3. Recalcular contadores para refletir a exclusão
+      await supabase.from('assignments').delete().match({ date: activeDate, user_id: userId });
+      await supabase.from('schedules').delete().match({ date: activeDate, user_id: userId });
       await recalculateAllEmployeeCounters(employees, holidays);
-      
       await refreshData();
-      alert("Escala do dia removida com sucesso. Contadores atualizados.");
+      alert("Escala do dia removida com sucesso.");
     } catch (err) {
       console.error("Erro ao excluir escala:", err);
       alert("Erro ao excluir escala.");
@@ -106,11 +100,10 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
   const openConfirmation = () => {
     if (!isSpecial) return;
     if (currentEnvAssigned.length === 0) {
-      alert("Selecione ao menos um colaborador para sincronizar.");
+      alert("Selecione ao menos um colaborador.");
       return;
     }
     
-    // Resetar checklist
     const initialChecklist: Record<string, boolean> = {
       date: false,
       environment: false
@@ -178,25 +171,18 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 relative">
-      {/* Loading Overlay para Sincronização */}
       {isConfirming && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
           <div className="bg-slate-900 border border-slate-800 p-10 rounded-3xl shadow-2xl flex flex-col items-center space-y-6 max-w-sm text-center">
             <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin shadow-[0_0_15px_rgba(16,185,129,0.3)]"></div>
             <div className="space-y-2">
               <h3 className="text-xl font-black uppercase tracking-tighter text-white">Sincronizando Dia</h3>
-              <p className="text-slate-500 text-xs font-bold uppercase tracking-widest leading-relaxed">Efetivando escala e atualizando contadores de folgas...</p>
-            </div>
-            <div className="flex space-x-2">
-               <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce"></div>
-               <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce [animation-delay:0.2s]"></div>
-               <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce [animation-delay:0.4s]"></div>
+              <p className="text-slate-500 text-xs font-bold uppercase tracking-widest leading-relaxed">Efetivando escala e atualizando seus contadores...</p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal de Checklist */}
       {isChecklistOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-200">
           <div className="bg-slate-900 w-full max-w-lg rounded-3xl border border-slate-800 p-8 shadow-2xl overflow-hidden relative">
@@ -213,7 +199,6 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
             </div>
 
             <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-              {/* Item: Data */}
               <label className={`flex items-start p-4 rounded-2xl border transition-all cursor-pointer group ${checkedItems['date'] ? 'bg-indigo-600/10 border-indigo-500/50' : 'bg-slate-800 border-slate-700 hover:border-slate-500'}`}>
                 <input type="checkbox" checked={checkedItems['date'] || false} onChange={() => toggleCheckItem('date')} className="mt-1 w-5 h-5 rounded border-slate-700 text-indigo-600 focus:ring-indigo-500 bg-slate-900" />
                 <div className="ml-4">
@@ -222,7 +207,6 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
                 </div>
               </label>
 
-              {/* Item: Ambiente */}
               <label className={`flex items-start p-4 rounded-2xl border transition-all cursor-pointer group ${checkedItems['environment'] ? 'bg-indigo-600/10 border-indigo-500/50' : 'bg-slate-800 border-slate-700 hover:border-slate-500'}`}>
                 <input type="checkbox" checked={checkedItems['environment'] || false} onChange={() => toggleCheckItem('environment')} className="mt-1 w-5 h-5 rounded border-slate-700 text-indigo-600 focus:ring-indigo-500 bg-slate-900" />
                 <div className="ml-4">
@@ -231,7 +215,6 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
                 </div>
               </label>
 
-              {/* Itens: Categorias */}
               <div className="pt-2 border-t border-slate-800 space-y-4">
                 <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] ml-2">Colaboradores por Categoria</p>
                 {activeCategories.map(cat => {
@@ -257,25 +240,13 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
             </div>
 
             <div className="mt-8 flex gap-4">
-              <button 
-                onClick={() => setIsChecklistOpen(false)}
-                className="flex-1 py-4 bg-slate-800 text-slate-400 font-bold rounded-2xl hover:bg-slate-700 transition-colors text-xs uppercase tracking-widest"
-              >
-                Corrigir
-              </button>
-              <button 
-                onClick={handleFinalConfirm}
-                disabled={!isChecklistComplete()}
-                className={`flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${isChecklistComplete() ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}
-              >
-                Confirmar Escala
-              </button>
+              <button onClick={() => setIsChecklistOpen(false)} className="flex-1 py-4 bg-slate-800 text-slate-400 font-bold rounded-2xl hover:bg-slate-700 transition-colors text-xs uppercase tracking-widest">Corrigir</button>
+              <button onClick={handleFinalConfirm} disabled={!isChecklistComplete()} className={`flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${isChecklistComplete() ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}>Confirmar Escala</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Lado Esquerdo: Categorias de Escala */}
       <div className="lg:col-span-4 bg-slate-900 p-6 rounded-3xl border border-slate-800 flex flex-col h-fit">
         <div className="flex flex-col mb-6 gap-4 border-b border-slate-800 pb-6">
           <div className="space-y-1">
@@ -318,7 +289,6 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
                         <button onClick={() => toggleEmployee(e.id)} className="ml-1.5 text-rose-500 font-black hover:scale-125 transition">&times;</button>
                       </div>
                     ))}
-                  {getCategoryCount(cat.id) === 0 && <p className="text-[9px] text-slate-600 italic">Nenhum selecionado</p>}
                 </div>
               </div>
             ))}
@@ -326,72 +296,44 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
         </div>
 
         <div className="mt-auto pt-4 flex flex-col gap-3">
-          <button 
-            onClick={openConfirmation} 
-            disabled={isConfirming || !isSpecial || currentEnvAssigned.length === 0} 
-            className={`w-full py-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${!isSpecial || currentEnvAssigned.length === 0 ? 'bg-slate-800 text-slate-600' : showSuccess ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white shadow-lg'}`}
-          >
-            {isConfirming ? "Sincronizando..." : showSuccess ? "Dia Sincronizado!" : "Sincronizar Dia"}
+          <button onClick={openConfirmation} disabled={isConfirming || !isSpecial || currentEnvAssigned.length === 0} className={`w-full py-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${!isSpecial || currentEnvAssigned.length === 0 ? 'bg-slate-800 text-slate-600' : showSuccess ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white shadow-lg'}`}>
+            {isConfirming ? "Sincronizando..." : showSuccess ? "Sincronizado!" : "Sincronizar Dia"}
           </button>
           
           {dayHasAnyAssignment && (
-            <button 
-              onClick={handleDeleteDaySchedule}
-              disabled={isDeleting}
-              className="w-full py-3 border border-rose-500/30 text-rose-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/10 transition-all flex items-center justify-center gap-2"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-              {isDeleting ? "Excluindo..." : "Excluir Escala do Dia"}
+            <button onClick={handleDeleteDaySchedule} disabled={isDeleting} className="w-full py-3 border border-rose-500/30 text-rose-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/10 transition-all flex items-center justify-center gap-2">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+              Excluir Dia
             </button>
           )}
         </div>
       </div>
 
-      {/* Lado Direito: Colaboradores */}
       <div className="lg:col-span-8 bg-slate-900 p-8 rounded-3xl border border-slate-800 flex flex-col h-fit">
         <div className="flex justify-between items-center mb-8 border-b border-slate-800 pb-6">
           <h3 className="text-slate-100 font-black text-lg uppercase tracking-widest">Colaboradores</h3>
           <div className="relative w-64">
-             <input 
-                type="text" 
-                placeholder="Pesquisar por nome..." 
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 text-[10px] font-black uppercase p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-white pl-9 tracking-widest"
-             />
-             <svg className="w-4 h-4 text-slate-500 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-             </svg>
+             <input type="text" placeholder="Pesquisar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-[10px] font-black uppercase p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-white pl-9 tracking-widest" />
+             <svg className="w-4 h-4 text-slate-500 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           </div>
         </div>
 
-        {/* Filtros Horizontais */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           <div className="p-3 bg-slate-800/30 rounded-2xl border border-slate-800">
             <p className="text-[9px] font-black text-slate-500 uppercase mb-2">Filtrar Categoria</p>
             <div className="flex flex-wrap gap-1.5">
               {sortedCats.map(cat => (
-                <button
-                  key={cat.id}
-                  onClick={() => setSelectedCategories(prev => prev.includes(cat.id) ? prev.filter(i => i !== cat.id) : [...prev, cat.id])}
-                  className={`px-2 py-1 rounded-lg text-[9px] font-bold border transition-all ${selectedCategories.includes(cat.id) ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}
-                >
+                <button key={cat.id} onClick={() => setSelectedCategories(prev => prev.includes(cat.id) ? prev.filter(i => i !== cat.id) : [...prev, cat.id])} className={`px-2 py-1 rounded-lg text-[9px] font-bold border transition-all ${selectedCategories.includes(cat.id) ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>
                   {cat.name}
                 </button>
               ))}
             </div>
           </div>
           <div className="p-3 bg-slate-800/30 rounded-2xl border border-slate-800">
-            <p className="text-[9px] font-black text-slate-500 uppercase mb-2">Filtrar Ambiente Base</p>
+            <p className="text-[9px] font-black text-slate-500 uppercase mb-2">Ambiente Base</p>
             <div className="flex flex-wrap gap-1.5">
               {sortedEnvs.map(env => (
-                <button
-                  key={env.id}
-                  onClick={() => setSelectedEnvironments(prev => prev.includes(env.id) ? prev.filter(i => i !== env.id) : [...prev, env.id])}
-                  className={`px-2 py-1 rounded-lg text-[9px] font-bold border transition-all ${selectedEnvironments.includes(env.id) ? 'bg-emerald-600 border-emerald-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}
-                >
+                <button key={env.id} onClick={() => setSelectedEnvironments(prev => prev.includes(env.id) ? prev.filter(i => i !== env.id) : [...prev, env.id])} className={`px-2 py-1 rounded-lg text-[9px] font-bold border transition-all ${selectedEnvironments.includes(env.id) ? 'bg-emerald-600 border-emerald-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>
                   {env.name}
                 </button>
               ))}
@@ -399,26 +341,10 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
           </div>
         </div>
 
-        {/* Novo Filtro de Contadores */}
         <div className="flex gap-2 mb-6 p-1 bg-slate-800/50 rounded-2xl border border-slate-700 w-fit">
-           <button 
-             onClick={() => setCounterFilter('none')}
-             className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${counterFilter === 'none' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'}`}
-           >
-             Nenhum
-           </button>
-           <button 
-             onClick={() => setCounterFilter('sunday')}
-             className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${counterFilter === 'sunday' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-500 hover:text-slate-300'}`}
-           >
-             Contador Domingos
-           </button>
-           <button 
-             onClick={() => setCounterFilter('holiday')}
-             className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${counterFilter === 'holiday' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'text-slate-500 hover:text-slate-300'}`}
-           >
-             Contador Feriados
-           </button>
+           <button onClick={() => setCounterFilter('none')} className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${counterFilter === 'none' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'}`}>Nenhum</button>
+           <button onClick={() => setCounterFilter('sunday')} className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${counterFilter === 'sunday' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-500 hover:text-slate-300'}`}>Domingos</button>
+           <button onClick={() => setCounterFilter('holiday')} className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${counterFilter === 'holiday' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'text-slate-500 hover:text-slate-300'}`}>Feriados</button>
         </div>
 
         <div className={`${!isSpecial ? 'opacity-20 pointer-events-none' : ''}`}>
@@ -427,13 +353,12 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
               .filter(e => searchTerm === '' || e.name.toLowerCase().includes(searchTerm.toLowerCase()))
               .filter(e => selectedCategories.length === 0 || selectedCategories.includes(e.categoryId))
               .filter(e => selectedEnvironments.length === 0 || selectedEnvironments.includes(e.environmentId))
-              .sort((a,b) => a.name.localeCompare(b.name)) // A-Z
+              .sort((a,b) => a.name.localeCompare(b.name))
               .map(e => {
                 const isInactive = e.status !== 'Ativo';
                 const isUsedHere = currentEnvAssigned.includes(e.id);
                 const isUsedElsewhere = assignedIds.includes(e.id) && !isUsedHere;
                 
-                // Determinando qual contador exibir no badge secundário (prioridade)
                 let badgeVal = 0;
                 let badgePrefix = '';
                 let badgeClasses = '';
@@ -449,44 +374,15 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
                 }
 
                 return (
-                  <button 
-                    key={e.id}
-                    onClick={() => !isUsedElsewhere && !isInactive && isSpecial && toggleEmployee(e.id)}
-                    disabled={isUsedElsewhere || isInactive || !isSpecial}
-                    className={`text-left p-4 rounded-2xl transition-all border group relative ${
-                      isUsedHere ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg' : 
-                      isUsedElsewhere ? 'bg-slate-800/30 border-slate-700/30 opacity-40 cursor-not-allowed grayscale' : 
-                      isInactive ? 'bg-slate-900 border-slate-800 border-dashed opacity-40 cursor-not-allowed grayscale' :
-                      'bg-slate-800 border-slate-700 hover:border-indigo-500 hover:bg-slate-800/80 shadow-sm'
-                    }`}
-                  >
+                  <button key={e.id} onClick={() => !isUsedElsewhere && !isInactive && isSpecial && toggleEmployee(e.id)} disabled={isUsedElsewhere || isInactive || !isSpecial} className={`text-left p-4 rounded-2xl transition-all border group relative ${isUsedHere ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg' : isUsedElsewhere ? 'bg-slate-800/30 border-slate-700/30 opacity-40 cursor-not-allowed grayscale' : isInactive ? 'bg-slate-900 border-slate-800 border-dashed opacity-40 cursor-not-allowed grayscale' : 'bg-slate-800 border-slate-700 hover:border-indigo-500 hover:bg-slate-800/80 shadow-sm'}`}>
                     <div className="flex justify-between items-start mb-2">
                       <span className="font-black text-sm truncate pr-2">{e.name}</span>
-                      {isInactive && (
-                        <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded-lg border flex-shrink-0 ${
-                          e.status === 'Férias' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-rose-500/20 text-rose-400 border-rose-500/30'
-                        }`}>
-                          {e.status}
-                        </span>
-                      )}
+                      {isInactive && <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded-lg border ${e.status === 'Férias' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-rose-500/20 text-rose-400 border-rose-500/30'}`}>{e.status}</span>}
                     </div>
                     <div className="flex gap-2">
-                      {counterFilter !== 'none' && (
-                        <div className={`flex items-center px-1.5 py-0.5 rounded-lg border text-[9px] font-black ${badgeClasses}`}>
-                          <span className="opacity-50 mr-1">{badgePrefix}</span> {formatCounter(badgeVal)}
-                        </div>
-                      )}
-                      {/* Caso nenhum filtro de contador esteja ativo mas o dia seja especial, mostramos o contador contextual padrão discretamente */}
-                      {counterFilter === 'none' && isDaySunday && (
-                        <div className="text-[8px] font-black text-slate-500 uppercase">Dom: {e.consecutiveSundaysOff} folgas</div>
-                      )}
-                      {counterFilter === 'none' && !!holidayInfo && (
-                        <div className="text-[8px] font-black text-slate-500 uppercase">Fer: {e.consecutiveHolidaysOff} folgas</div>
-                      )}
+                      {counterFilter !== 'none' && <div className={`flex items-center px-1.5 py-0.5 rounded-lg border text-[9px] font-black ${badgeClasses}`}><span className="opacity-50 mr-1">{badgePrefix}</span> {formatCounter(badgeVal)}</div>}
+                      {counterFilter === 'none' && isDaySunday && <div className="text-[8px] font-black text-slate-500 uppercase">Dom: {e.consecutiveSundaysOff}</div>}
                     </div>
-                    {isInactive && (
-                      <div className="absolute inset-0 bg-slate-950/5 pointer-events-none rounded-2xl"></div>
-                    )}
                   </button>
                 );
               })}
