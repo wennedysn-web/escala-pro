@@ -165,7 +165,7 @@ const ReportsOverview: React.FC<Props> = ({ employees, environments, categories,
 
         {/* Tabela de Colaboradores */}
         <div className="mb-10">
-          <h3 className="text-lg font-black uppercase border-b-2 border-black mb-2">Lista de Colaboradores</h3>
+          <h3 className="text-lg font-black uppercase border-b-2 border-black mb-2">Lista de Colaboradores (Z-A)</h3>
           <table className="report-table">
             <thead>
               <tr>
@@ -178,7 +178,7 @@ const ReportsOverview: React.FC<Props> = ({ employees, environments, categories,
               </tr>
             </thead>
             <tbody>
-              {employees.sort((a,b) => a.name.localeCompare(b.name)).map(emp => {
+              {employees.sort((a,b) => b.name.localeCompare(a.name)).map(emp => {
                 const statusStyle = getStatusStyle(emp.status);
                 return (
                   <tr key={emp.id}>

@@ -21,9 +21,9 @@ const App: React.FC = () => {
   const fetchData = async () => {
     try {
       const [cats, envs, emps, hols, schs, assigns] = await Promise.all([
-        supabase.from('categories').select('*').order('name'),
-        supabase.from('environments').select('*').order('name'),
-        supabase.from('employees').select('*').order('name'),
+        supabase.from('categories').select('*').order('name', { ascending: false }),
+        supabase.from('environments').select('*').order('name', { ascending: false }),
+        supabase.from('employees').select('*').order('name', { ascending: false }),
         supabase.from('holidays').select('*').order('date'),
         supabase.from('schedules').select('*'),
         supabase.from('assignments').select('*')

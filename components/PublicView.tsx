@@ -17,12 +17,15 @@ const PublicView: React.FC<Props> = ({ employees, schedules, environments, holid
 
   const days = getMonthDays(selectedYear, selectedMonth);
   
+  const sortedEnvironments = [...environments].sort((a,b) => b.name.localeCompare(a.name));
+  const sortedCategories = [...categories].sort((a,b) => b.name.localeCompare(a.name));
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-extrabold text-slate-100">Cronograma Mensal</h2>
-          <p className="text-slate-400">Escala oficial de trabalho por ambiente</p>
+          <p className="text-slate-400">Escala oficial de trabalho por ambiente (Z-A)</p>
         </div>
         <div className="flex space-x-2">
           <select 
@@ -65,7 +68,7 @@ const PublicView: React.FC<Props> = ({ employees, schedules, environments, holid
               </div>
               
               <div className="flex-grow grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 p-6 gap-8">
-                {environments.map(env => {
+                {sortedEnvironments.map(env => {
                   const assignment = daySched.assignments.find(a => a.environmentId === env.id);
                   if (!assignment || assignment.employeeIds.length === 0) return null;
                   
@@ -74,7 +77,7 @@ const PublicView: React.FC<Props> = ({ employees, schedules, environments, holid
                     .map(id => employees.find(e => e.id === id))
                     .filter(Boolean) as Employee[];
 
-                  const categoriesInEnv = categories.filter(cat => 
+                  const categoriesInEnv = sortedCategories.filter(cat => 
                     envEmployees.some(emp => emp.categoryId === cat.id)
                   );
 
@@ -87,7 +90,7 @@ const PublicView: React.FC<Props> = ({ employees, schedules, environments, holid
                       
                       <div className="space-y-3 pl-3 border-l border-slate-800">
                         {categoriesInEnv.map(cat => {
-                          const catEmployees = envEmployees.filter(emp => emp.categoryId === cat.id);
+                          const catEmployees = envEmployees.filter(emp => emp.categoryId === cat.id).sort((a,b) => b.name.localeCompare(a.name));
                           return (
                             <div key={cat.id} className="space-y-2">
                               <div className="flex items-center space-x-2">

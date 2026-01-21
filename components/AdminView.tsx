@@ -5,7 +5,6 @@ import ScheduleEditor from './ScheduleEditor';
 import PrintPreview from './PrintPreview';
 import MuralPreview from './MuralPreview';
 import ReportsOverview from './ReportsOverview';
-import { generateSchedule } from '../services/schedulerEngine';
 import { recalculateAllEmployeeCounters } from '../services/counterService';
 import { supabase } from '../lib/supabase';
 
@@ -20,10 +19,10 @@ interface Props {
 
 const AdminView: React.FC<Props> = (props) => {
   const [tab, setTab] = useState<'general' | 'employees' | 'schedule' | 'print' | 'mural' | 'others'>('general');
-  const [isGenerating, setIsGenerating] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
   const [showEmployeeModal, setShowEmployeeModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Partial<Employee> | null>(null);
+  const [empSearch, setEmpSearch] = useState('');
 
   // Estados locais para inputs rápidos
   const [newEnvName, setNewEnvName] = useState('');
@@ -41,49 +40,6 @@ const AdminView: React.FC<Props> = (props) => {
       alert("Erro ao recalcular contadores.");
     } finally {
       setIsRecalculating(false);
-    }
-  };
-
-  const handleAutoGenerate = async () => {
-    if (!confirm("Gerar escala inteligente para os próximos 31 dias? Isso sobrescreverá assignments existentes para esses dias.")) return;
-
-    setIsGenerating(true);
-    const requirements: Record<string, number> = {};
-    props.environments.forEach(env => { requirements[env.id] = 2; });
-
-    const { newSchedules } = generateSchedule(
-      new Date(), 31, props.employees, props.schedules, requirements, props.holidays
-    );
-
-    try {
-      for (const sch of newSchedules) {
-        await supabase.from('schedules').upsert({
-          date: sch.date,
-          is_sunday: sch.isSunday,
-          is_holiday: sch.isHoliday,
-          holiday_name: sch.holidayName
-        });
-        await supabase.from('assignments').delete().eq('date', sch.date);
-        const assignmentsToInsert = sch.assignments.flatMap(a => 
-          a.employeeIds.map(empId => ({
-            date: sch.date,
-            environment_id: a.environmentId,
-            employee_id: empId
-          }))
-        );
-        if (assignmentsToInsert.length > 0) {
-          await supabase.from('assignments').insert(assignmentsToInsert);
-        }
-      }
-
-      await recalculateAllEmployeeCounters(props.employees, props.holidays);
-      await props.refreshData();
-      alert("Escala gerada com sucesso!");
-    } catch (err) {
-      console.error(err);
-      alert("Erro ao salvar escala automática.");
-    } finally {
-      setIsGenerating(false);
     }
   };
 
@@ -169,6 +125,12 @@ const AdminView: React.FC<Props> = (props) => {
     }
   };
 
+  const sortedEnvs = [...props.environments].sort((a,b) => b.name.localeCompare(a.name));
+  const sortedCats = [...props.categories].sort((a,b) => b.name.localeCompare(a.name));
+  const filteredEmployees = props.employees
+    .filter(e => e.name.toLowerCase().includes(empSearch.toLowerCase()))
+    .sort((a,b) => b.name.localeCompare(a.name));
+
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap gap-2 pb-4 border-b border-slate-800">
@@ -194,18 +156,11 @@ const AdminView: React.FC<Props> = (props) => {
       <div className="mt-8">
         {tab === 'general' && (
           <div className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-slate-900 p-8 rounded-3xl border border-slate-800 space-y-6">
-                <h3 className="text-xl font-black uppercase tracking-tighter">Motor de Automação</h3>
-                <p className="text-slate-500 text-xs">Aplica lógica de revezamento para gerar escalas mensais inteligentes.</p>
-                <button onClick={handleAutoGenerate} disabled={isGenerating} className="w-full py-4 bg-indigo-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl">
-                  {isGenerating ? "Processando..." : "Gerar Escala Mensal"}
-                </button>
-              </div>
+            <div className="grid grid-cols-1 gap-6">
               <div className="bg-slate-900 p-8 rounded-3xl border border-slate-800 space-y-6">
                 <h3 className="text-xl font-black uppercase tracking-tighter">Sincronização</h3>
                 <p className="text-slate-500 text-xs">Recalcula todos os contadores com base nas escalas salvas.</p>
-                <button onClick={handleRecalculate} disabled={isRecalculating} className="w-full py-4 bg-slate-800 text-slate-400 font-black text-xs uppercase tracking-widest rounded-2xl border border-slate-700">
+                <button onClick={handleRecalculate} disabled={isRecalculating} className="w-full max-w-sm py-4 bg-slate-800 text-slate-400 font-black text-xs uppercase tracking-widest rounded-2xl border border-slate-700 hover:bg-slate-700 transition-colors">
                   {isRecalculating ? "Recalculando..." : "Recalcular Histórico"}
                 </button>
               </div>
@@ -215,10 +170,10 @@ const AdminView: React.FC<Props> = (props) => {
               {/* Gerenciar Ambientes */}
               <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 flex flex-col">
                 <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center">
-                  <span className="w-2 h-2 bg-indigo-500 rounded-full mr-2"></span> Ambientes
+                  <span className="w-2 h-2 bg-indigo-500 rounded-full mr-2"></span> Ambientes (Z-A)
                 </h4>
                 <div className="flex-grow space-y-2 mb-4 max-h-48 overflow-y-auto custom-scrollbar">
-                  {props.environments.map(env => (
+                  {sortedEnvs.map(env => (
                     <div key={env.id} className="flex justify-between items-center bg-slate-800/50 p-2.5 rounded-xl border border-slate-700">
                       <span className="text-xs font-bold">{env.name}</span>
                       <button onClick={() => handleRemoveItem('environments', env.id)} className="text-rose-500 hover:text-rose-400">
@@ -236,10 +191,10 @@ const AdminView: React.FC<Props> = (props) => {
               {/* Gerenciar Categorias */}
               <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 flex flex-col">
                 <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center">
-                  <span className="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span> Categorias
+                  <span className="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span> Categorias (Z-A)
                 </h4>
                 <div className="flex-grow space-y-2 mb-4 max-h-48 overflow-y-auto custom-scrollbar">
-                  {props.categories.map(cat => (
+                  {sortedCats.map(cat => (
                     <div key={cat.id} className="flex justify-between items-center bg-slate-800/50 p-2.5 rounded-xl border border-slate-700">
                       <span className="text-xs font-bold">{cat.name}</span>
                       <button onClick={() => handleRemoveItem('categories', cat.id)} className="text-rose-500 hover:text-rose-400">
@@ -286,18 +241,30 @@ const AdminView: React.FC<Props> = (props) => {
 
         {tab === 'employees' && (
           <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <h2 className="text-2xl font-black uppercase tracking-tighter">Colaboradores</h2>
-              <button onClick={() => { setEditingEmployee({}); setShowEmployeeModal(true); }} className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg">+ Adicionar</button>
+              <div className="flex flex-grow w-full md:w-auto md:max-w-md items-center gap-4">
+                 <div className="relative flex-grow">
+                    <input 
+                      type="text" 
+                      placeholder="Pesquisar por nome..." 
+                      value={empSearch}
+                      onChange={e => setEmpSearch(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-800 text-xs font-black uppercase tracking-widest p-3 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all pl-10"
+                    />
+                    <svg className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                 </div>
+                 <button onClick={() => { setEditingEmployee({}); setShowEmployeeModal(true); }} className="whitespace-nowrap bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-indigo-600/20 active:scale-95 transition-transform">+ Adicionar</button>
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {props.employees.map(emp => (
+              {filteredEmployees.map(emp => (
                 <div key={emp.id} className="bg-slate-900 p-6 rounded-3xl border border-slate-800 hover:border-slate-700 transition-all group">
                   <div className="flex justify-between items-start mb-4">
                     <div className="w-12 h-12 bg-indigo-600/10 text-indigo-400 rounded-2xl flex items-center justify-center font-black text-xl border border-indigo-500/20">{emp.name.charAt(0)}</div>
                     <div className="flex space-x-2">
-                      <button onClick={() => { setEditingEmployee(emp); setShowEmployeeModal(true); }} className="p-2 bg-slate-800 text-slate-400 rounded-lg"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
-                      <button onClick={() => handleDeleteEmployee(emp.id)} className="p-2 bg-rose-500/10 text-rose-500 rounded-lg"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                      <button onClick={() => { setEditingEmployee(emp); setShowEmployeeModal(true); }} className="p-2 bg-slate-800 text-slate-400 rounded-lg hover:text-white transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
+                      <button onClick={() => handleDeleteEmployee(emp.id)} className="p-2 bg-rose-500/10 text-rose-500 rounded-lg hover:bg-rose-500/20 transition-all"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
                     </div>
                   </div>
                   <h4 className="font-bold">{emp.name}</h4>
@@ -333,11 +300,11 @@ const AdminView: React.FC<Props> = (props) => {
               <div className="grid grid-cols-2 gap-4">
                 <select required value={editingEmployee?.categoryId || ''} onChange={e => setEditingEmployee({...editingEmployee!, categoryId: e.target.value})} className="bg-slate-800 border border-slate-700 p-3 rounded-xl text-white outline-none">
                   <option value="">Categoria</option>
-                  {props.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {sortedCats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
                 <select required value={editingEmployee?.environmentId || ''} onChange={e => setEditingEmployee({...editingEmployee!, environmentId: e.target.value})} className="bg-slate-800 border border-slate-700 p-3 rounded-xl text-white outline-none">
                   <option value="">Ambiente Base</option>
-                  {props.environments.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                  {sortedEnvs.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                 </select>
               </div>
               <div className="flex gap-4 pt-6">
