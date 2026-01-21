@@ -22,28 +22,42 @@ const App: React.FC = () => {
   const fetchData = async () => {
     try {
       setDbError(null);
+      
+      // Fetch data individually to handle missing tables gracefully
+      const fetchTable = async (table: string, query: any = supabase.from(table).select('*')) => {
+        try {
+          const { data, error } = await query;
+          if (error) {
+            console.warn(`Aviso: Falha ao carregar tabela "${table}":`, error.message);
+            return { data: null, error };
+          }
+          return { data, error: null };
+        } catch (e) {
+          console.error(`Erro crítico na tabela "${table}":`, e);
+          return { data: null, error: e };
+        }
+      };
+
       const [cats, envs, emps, hols, schs, assigns] = await Promise.all([
-        supabase.from('categories').select('*').order('name', { ascending: true }),
-        supabase.from('environments').select('*').order('name', { ascending: false }),
-        supabase.from('employees').select('*').order('name', { ascending: true }),
-        supabase.from('holidays').select('*').order('date'),
-        supabase.from('schedules').select('*'),
-        supabase.from('assignments').select('*')
+        fetchTable('categories', supabase.from('categories').select('*').order('name', { ascending: true })),
+        fetchTable('environments', supabase.from('environments').select('*').order('name', { ascending: false })),
+        fetchTable('employees', supabase.from('employees').select('*').order('name', { ascending: true })),
+        fetchTable('holidays', supabase.from('holidays').select('*').order('date')),
+        fetchTable('schedules', supabase.from('schedules').select('*')),
+        fetchTable('assignments', supabase.from('assignments').select('*'))
       ]);
 
-      const errors = [cats.error, envs.error, emps.error, hols.error, schs.error, assigns.error].filter(Boolean);
-      
-      if (errors.length > 0) {
-        console.error("Erros detectados no Supabase:", errors);
-        const errorMsgs = errors.map(e => e?.message).join(' | ');
-        setDbError(`Erro na conexão: ${errorMsgs}`);
+      // Critical tables - if these fail, we show an error
+      if (cats.error || envs.error || emps.error) {
+        const criticalError = cats.error?.message || envs.error?.message || emps.error?.message;
+        setDbError(`Erro em tabelas essenciais: ${criticalError}. Verifique se as tabelas existem no seu Supabase.`);
       }
 
       if (cats.data) setCategories(cats.data);
       if (envs.data) setEnvironments(envs.data);
       
       if (emps.data) {
-        setEmployees(emps.data.map(e => ({
+        setEmployees(emps.data.map((e: any) => ({
           ...e,
           id: e.id,
           name: e.name || 'Sem Nome',
@@ -64,12 +78,14 @@ const App: React.FC = () => {
       
       if (hols.data) setHolidays(hols.data);
       
-      if (schs.data && assigns.data) {
-        const builtSchedules: DaySchedule[] = schs.data.map(s => {
-          const dayAssigns = assigns.data.filter(a => a.date === s.date);
+      // Process schedules even if assignments fail (treat as empty)
+      if (schs.data) {
+        const safeAssignments = assigns.data || [];
+        const builtSchedules: DaySchedule[] = schs.data.map((s: any) => {
+          const dayAssigns = safeAssignments.filter((a: any) => a.date === s.date);
           const envGrouped: Record<string, string[]> = {};
           
-          dayAssigns.forEach(a => {
+          dayAssigns.forEach((a: any) => {
             if (!envGrouped[a.environment_id]) envGrouped[a.environment_id] = [];
             envGrouped[a.environment_id].push(a.employee_id);
           });
@@ -88,7 +104,10 @@ const App: React.FC = () => {
           };
         });
         setSchedules(builtSchedules);
+      } else {
+        setSchedules([]);
       }
+
     } catch (error: any) {
       console.error("Erro crítico ao carregar dados:", error);
       setDbError(error.message || "Falha ao conectar com o servidor.");
@@ -173,15 +192,15 @@ const App: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 pt-8">
           <div className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <svg className="w-6 h-6 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+              <svg className="w-6 h-6 text-rose-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
               <div className="text-left">
-                <p className="text-rose-400 font-bold text-sm">Atenção: Houve um problema ao carregar os dados.</p>
+                <p className="text-rose-400 font-bold text-sm">Problema detectado no banco de dados.</p>
                 <p className="text-rose-500/70 text-xs font-medium">{dbError}</p>
               </div>
             </div>
             <button 
               onClick={() => fetchData()}
-              className="px-4 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all"
+              className="px-4 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap"
             >
               Tentar Novamente
             </button>
