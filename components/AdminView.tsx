@@ -125,11 +125,11 @@ const AdminView: React.FC<Props> = (props) => {
     }
   };
 
-  const sortedEnvs = [...props.environments].sort((a,b) => b.name.localeCompare(a.name));
-  const sortedCats = [...props.categories].sort((a,b) => b.name.localeCompare(a.name));
+  const sortedEnvs = [...props.environments].sort((a,b) => b.name.localeCompare(a.name)); // Z-A
+  const sortedCats = [...props.categories].sort((a,b) => a.name.localeCompare(b.name)); // A-Z
   const filteredEmployees = props.employees
     .filter(e => e.name.toLowerCase().includes(empSearch.toLowerCase()))
-    .sort((a,b) => b.name.localeCompare(a.name));
+    .sort((a,b) => a.name.localeCompare(b.name)); // A-Z
 
   return (
     <div className="space-y-8">
@@ -170,7 +170,7 @@ const AdminView: React.FC<Props> = (props) => {
               {/* Gerenciar Ambientes */}
               <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 flex flex-col">
                 <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center">
-                  <span className="w-2 h-2 bg-indigo-500 rounded-full mr-2"></span> Ambientes (Z-A)
+                  <span className="w-2 h-2 bg-indigo-500 rounded-full mr-2"></span> Ambientes
                 </h4>
                 <div className="flex-grow space-y-2 mb-4 max-h-48 overflow-y-auto custom-scrollbar">
                   {sortedEnvs.map(env => (
@@ -191,7 +191,7 @@ const AdminView: React.FC<Props> = (props) => {
               {/* Gerenciar Categorias */}
               <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 flex flex-col">
                 <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center">
-                  <span className="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span> Categorias (Z-A)
+                  <span className="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span> Categorias
                 </h4>
                 <div className="flex-grow space-y-2 mb-4 max-h-48 overflow-y-auto custom-scrollbar">
                   {sortedCats.map(cat => (

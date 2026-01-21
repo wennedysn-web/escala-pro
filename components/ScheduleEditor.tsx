@@ -38,8 +38,11 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
   const assignments = currentDaySchedule.assignments || [];
   const currentEnvAssigned = assignments.find(a => a.environmentId === activeEnv)?.employeeIds || [];
 
+  const sortedEnvs = [...environments].sort((a,b) => b.name.localeCompare(a.name));
+  const sortedCats = [...categories].sort((a,b) => a.name.localeCompare(b.name));
+
   // Categorias que possuem funcionários escalados no ambiente/dia atual
-  const activeCategories = categories.filter(cat => 
+  const activeCategories = sortedCats.filter(cat => 
     currentEnvAssigned.some(id => employees.find(e => e.id === id)?.categoryId === cat.id)
   );
 
@@ -66,7 +69,7 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
           environment_id: activeEnv,
           employee_id: empId
         }]);
-        // Clear search only when selecting (adding) a collaborator
+        // Clear search when selecting/adding a collaborator
         setSearchTerm('');
       }
       await refreshData();
@@ -267,7 +270,7 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
           <div className="flex flex-col gap-2">
             <input type="date" value={activeDate} onChange={e => setActiveDate(e.target.value)} className="w-full p-2.5 bg-slate-800 rounded-xl text-xs text-white border border-slate-700 outline-none" />
             <select value={activeEnv} onChange={e => setActiveEnv(e.target.value)} className="w-full p-2.5 bg-slate-800 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none">
-              {environments.map(env => <option key={env.id} value={env.id}>{env.name}</option>)}
+              {sortedEnvs.map(env => <option key={env.id} value={env.id}>{env.name}</option>)}
             </select>
           </div>
         </div>
@@ -280,7 +283,7 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
           )}
 
           <div className={`space-y-4 ${!isSpecial ? 'opacity-30 pointer-events-none' : ''}`}>
-            {categories.map(cat => (
+            {sortedCats.map(cat => (
               <div key={cat.id} className="p-4 bg-slate-800/40 rounded-2xl border border-slate-800">
                 <div className="flex justify-between items-center mb-3">
                   <h4 className="font-black text-slate-400 text-[9px] uppercase tracking-widest">{cat.name}</h4>
@@ -334,7 +337,7 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
           <div className="relative w-64">
              <input 
                 type="text" 
-                placeholder="Buscar por nome..." 
+                placeholder="Pesquisar por nome..." 
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
                 className="w-full bg-slate-800 border border-slate-700 text-[10px] font-black uppercase p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-white pl-9 tracking-widest"
@@ -350,7 +353,7 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
           <div className="p-3 bg-slate-800/30 rounded-2xl border border-slate-800">
             <p className="text-[9px] font-black text-slate-500 uppercase mb-2">Filtrar Categoria</p>
             <div className="flex flex-wrap gap-1.5">
-              {categories.map(cat => (
+              {sortedCats.map(cat => (
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategories(prev => prev.includes(cat.id) ? prev.filter(i => i !== cat.id) : [...prev, cat.id])}
@@ -364,7 +367,7 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
           <div className="p-3 bg-slate-800/30 rounded-2xl border border-slate-800">
             <p className="text-[9px] font-black text-slate-500 uppercase mb-2">Filtrar Ambiente Base</p>
             <div className="flex flex-wrap gap-1.5">
-              {environments.map(env => (
+              {sortedEnvs.map(env => (
                 <button
                   key={env.id}
                   onClick={() => setSelectedEnvironments(prev => prev.includes(env.id) ? prev.filter(i => i !== env.id) : [...prev, env.id])}
@@ -383,6 +386,7 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
               .filter(e => searchTerm === '' || e.name.toLowerCase().includes(searchTerm.toLowerCase()))
               .filter(e => selectedCategories.length === 0 || selectedCategories.includes(e.categoryId))
               .filter(e => selectedEnvironments.length === 0 || selectedEnvironments.includes(e.environmentId))
+              .sort((a,b) => a.name.localeCompare(b.name)) // A-Z
               .map(e => {
                 const isInactive = e.status !== 'Ativo';
                 const isUsedHere = currentEnvAssigned.includes(e.id);

@@ -17,15 +17,15 @@ const PublicView: React.FC<Props> = ({ employees, schedules, environments, holid
 
   const days = getMonthDays(selectedYear, selectedMonth);
   
-  const sortedEnvironments = [...environments].sort((a,b) => b.name.localeCompare(a.name));
-  const sortedCategories = [...categories].sort((a,b) => b.name.localeCompare(a.name));
+  const sortedEnvironments = [...environments].sort((a,b) => b.name.localeCompare(a.name)); // Z-A
+  const sortedCategories = [...categories].sort((a,b) => a.name.localeCompare(b.name)); // A-Z
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-extrabold text-slate-100">Cronograma Mensal</h2>
-          <p className="text-slate-400">Escala oficial de trabalho por ambiente (Z-A)</p>
+          <p className="text-slate-400">Escala oficial de trabalho por ambiente</p>
         </div>
         <div className="flex space-x-2">
           <select 
@@ -90,7 +90,7 @@ const PublicView: React.FC<Props> = ({ employees, schedules, environments, holid
                       
                       <div className="space-y-3 pl-3 border-l border-slate-800">
                         {categoriesInEnv.map(cat => {
-                          const catEmployees = envEmployees.filter(emp => emp.categoryId === cat.id).sort((a,b) => b.name.localeCompare(a.name));
+                          const catEmployees = envEmployees.filter(emp => emp.categoryId === cat.id).sort((a,b) => a.name.localeCompare(b.name));
                           return (
                             <div key={cat.id} className="space-y-2">
                               <div className="flex items-center space-x-2">

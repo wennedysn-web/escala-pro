@@ -30,7 +30,9 @@ const PrintPreview: React.FC<Props> = ({ employees, schedules, environments, hol
     window.print();
   };
 
-  const sortedEnvs = [...environments].sort((a,b) => b.name.localeCompare(a.name));
+  const sortedEnvs = [...environments].sort((a,b) => b.name.localeCompare(a.name)); // Z-A
+  const sortedCats = [...categories].sort((a,b) => a.name.localeCompare(b.name)); // A-Z
+  
   const filteredEnvironments = selectedEnvironmentId === 'all' 
     ? sortedEnvs 
     : sortedEnvs.filter(e => e.id === selectedEnvironmentId);
@@ -38,8 +40,6 @@ const PrintPreview: React.FC<Props> = ({ employees, schedules, environments, hol
   const selectedEnvName = selectedEnvironmentId === 'all' 
     ? 'Todos os Ambientes' 
     : environments.find(e => e.id === selectedEnvironmentId)?.name || '';
-
-  const sortedCats = [...categories].sort((a,b) => b.name.localeCompare(a.name));
 
   return (
     <div className="bg-slate-900 rounded-3xl border border-slate-800 p-8">
@@ -75,7 +75,7 @@ const PrintPreview: React.FC<Props> = ({ employees, schedules, environments, hol
               value={selectedEnvironmentId}
               onChange={e => setSelectedEnvironmentId(e.target.value)}
             >
-              <option value="all">Todos os Ambientes (Z-A)</option>
+              <option value="all">Todos os Ambientes</option>
               {sortedEnvs.map(env => (
                 <option key={env.id} value={env.id}>{env.name}</option>
               ))}
@@ -216,7 +216,7 @@ const PrintPreview: React.FC<Props> = ({ employees, schedules, environments, hol
                         <td key={env.id} className="align-top">
                           <div className="flex flex-col gap-1">
                             {sortedCats.map(cat => {
-                              const catEmployees = envEmployees.filter(emp => emp.categoryId === cat.id).sort((a,b) => b.name.localeCompare(a.name));
+                              const catEmployees = envEmployees.filter(emp => emp.categoryId === cat.id).sort((a,b) => a.name.localeCompare(b.name));
                               if (catEmployees.length === 0) return null;
                               return (
                                 <div key={cat.id} className="mb-2 last:mb-0">
@@ -255,7 +255,14 @@ const PrintPreview: React.FC<Props> = ({ employees, schedules, environments, hol
                 ? dayAssignments 
                 : dayAssignments.filter(a => a.environmentId === selectedEnvironmentId);
 
-              if (relevantAssignments.every(a => a.employeeIds.length === 0)) return null;
+              // Sort environments Z-A for signature sheet
+              const sortedRelevantAssignments = relevantAssignments.sort((a, b) => {
+                const envA = environments.find(e => e.id === a.environmentId)?.name || '';
+                const envB = environments.find(e => e.id === b.environmentId)?.name || '';
+                return envB.localeCompare(envA);
+              });
+
+              if (sortedRelevantAssignments.every(a => a.employeeIds.length === 0)) return null;
 
               return (
                 <div key={date} className="border border-black p-4 mb-4 page-break-inside-avoid">
@@ -268,22 +275,19 @@ const PrintPreview: React.FC<Props> = ({ employees, schedules, environments, hol
                     <thead>
                       <tr>
                         <th style={{ width: '150px' }}>Ambiente</th>
-                        <th style={{ width: '200px' }}>Colaborador (Z-A)</th>
+                        <th style={{ width: '200px' }}>Colaborador</th>
                         <th>Assinatura</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {relevantAssignments.sort((a,b) => {
-                        const envA = environments.find(e => e.id === a.environmentId)?.name || '';
-                        const envB = environments.find(e => e.id === b.environmentId)?.name || '';
-                        return envB.localeCompare(envA);
-                      }).map(a => {
+                      {sortedRelevantAssignments.map(a => {
                         const env = environments.find(e => e.id === a.environmentId);
                         const assignedEmployees = a.employeeIds
                           .map(id => employees.find(e => e.id === id))
                           .filter(Boolean) as Employee[];
                         
-                        return assignedEmployees.sort((e1, e2) => e2.name.localeCompare(e1.name)).map((emp, idx) => (
+                        // Sort employees A-Z within the environment
+                        return assignedEmployees.sort((e1, e2) => e1.name.localeCompare(e2.name)).map((emp, idx) => (
                           <tr key={`${emp.id}-${idx}`}>
                             {idx === 0 && (
                               <td rowSpan={assignedEmployees.length} className="font-black align-middle bg-slate-50">
