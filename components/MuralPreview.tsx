@@ -80,7 +80,7 @@ const MuralPreview: React.FC<Props> = ({ employees, schedules, environments, hol
           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
           </svg>
-          Imprimir Mural (Letras Grandes)
+          Imprimir Mural
         </button>
       </div>
 
@@ -155,12 +155,12 @@ const MuralPreview: React.FC<Props> = ({ employees, schedules, environments, hol
 
         <div className="mural-header-container">
           <div className="text-left">
-            <h1 className="text-2xl font-black uppercase tracking-tight leading-none">Escala de Serviço</h1>
-            <h2 className="text-lg font-black uppercase mt-1 text-slate-700">{selectedEnv?.name}</h2>
+            <h1 className="text-xl font-black uppercase tracking-tight leading-none">Escala de Serviço</h1>
+            <h2 className="text-md font-black uppercase mt-0.5 text-slate-700">{selectedEnv?.name}</h2>
           </div>
           <div className="text-right">
-            <p className="text-sm font-black uppercase tracking-widest">{monthLabel} / {selectedYear}</p>
-            <p className="text-[10px] font-bold uppercase">(Domingos e Feriados)</p>
+            <p className="text-xs font-black uppercase tracking-widest leading-none">{monthLabel} / {selectedYear}</p>
+            <p className="text-[9px] font-bold uppercase">(Domingos e Feriados)</p>
           </div>
         </div>
 
@@ -203,7 +203,7 @@ const MuralPreview: React.FC<Props> = ({ employees, schedules, environments, hol
                         return (
                           <div key={cat.id}>
                             <span className="mural-category-label">{cat.name}</span>
-                            <div className="text-xl font-black text-black leading-tight">
+                            <div className="text-lg font-black text-black leading-tight">
                               {catEmployees.map(e => e.name).join(' - ')}
                             </div>
                           </div>
@@ -211,7 +211,7 @@ const MuralPreview: React.FC<Props> = ({ employees, schedules, environments, hol
                       })}
                       {envEmployees.length === 0 && (
                         <div className="text-center w-full">
-                          <span className="italic text-lg font-bold opacity-30">Sem Escala Definida</span>
+                          <span className="italic text-md font-bold opacity-30">Sem Escala Definida</span>
                         </div>
                       )}
                     </div>

@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Employee, Environment, Category, Holiday } from '../types';
+import { formatDateDisplay } from '../utils/dateUtils';
 
 interface Props {
   employees: Employee[];
@@ -61,15 +62,15 @@ const ReportsOverview: React.FC<Props> = ({ employees, environments, categories,
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-slate-800/40 rounded-2xl border border-slate-800">
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Ambiente</label>
-            <select value={filterEnv} onChange={e => setFilterEnv(e.target.value)} className="bg-slate-900 border border-slate-700 text-xs font-bold p-2.5 rounded-xl outline-none">
+            <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Filtrar Ambiente</label>
+            <select value={filterEnv} onChange={e => setFilterEnv(e.target.value)} className="bg-slate-900 border border-slate-700 text-xs font-bold p-2.5 rounded-xl outline-none text-white">
               <option value="all">Todos os Ambientes</option>
               {environments.map(env => <option key={env.id} value={env.id}>{env.name}</option>)}
             </select>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Situação</label>
-            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="bg-slate-900 border border-slate-700 text-xs font-bold p-2.5 rounded-xl outline-none">
+            <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Filtrar Situação</label>
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="bg-slate-900 border border-slate-700 text-xs font-bold p-2.5 rounded-xl outline-none text-white">
               <option value="all">Todas as Situações</option>
               <option value="Ativo">Ativo</option>
               <option value="Férias">Férias</option>
@@ -77,8 +78,8 @@ const ReportsOverview: React.FC<Props> = ({ employees, environments, categories,
             </select>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Ordenação</label>
-            <select value={sortOrder} onChange={e => setSortOrder(e.target.value as any)} className="bg-slate-900 border border-slate-700 text-xs font-bold p-2.5 rounded-xl outline-none">
+            <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Ordenar por Nome</label>
+            <select value={sortOrder} onChange={e => setSortOrder(e.target.value as any)} className="bg-slate-900 border border-slate-700 text-xs font-bold p-2.5 rounded-xl outline-none text-white">
               <option value="A-Z">Nome (A-Z)</option>
               <option value="Z-A">Nome (Z-A)</option>
             </select>
@@ -87,11 +88,11 @@ const ReportsOverview: React.FC<Props> = ({ employees, environments, categories,
       </div>
 
       {/* Área de Impressão */}
-      <div className="print-area bg-white text-black p-0 sm:p-10 shadow-2xl rounded-sm print:shadow-none print:p-0">
+      <div className="print-area bg-white text-black p-0 sm:p-10 shadow-2xl rounded-sm print:shadow-none print:p-0 overflow-x-auto">
         <style>{`
           @media print {
             @page {
-              size: A4 portrait;
+              size: A4 landscape;
               margin: 1cm;
             }
             body {
@@ -116,12 +117,12 @@ const ReportsOverview: React.FC<Props> = ({ employees, environments, categories,
           .report-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 10px;
+            font-size: 8.5px;
             margin-top: 15px;
           }
           .report-table th, .report-table td {
             border: 1px solid #000;
-            padding: 6px 8px;
+            padding: 5px 6px;
             text-align: left;
           }
           .report-table th {
@@ -131,101 +132,82 @@ const ReportsOverview: React.FC<Props> = ({ employees, environments, categories,
           }
           .stat-card {
             border: 1px solid #000;
-            padding: 6px;
+            padding: 4px 6px;
             text-align: center;
             flex: 1;
             min-width: 0;
           }
           .stat-value {
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 900;
             display: block;
             line-height: 1;
-            margin-bottom: 2px;
+            margin-bottom: 1px;
           }
           .stat-label {
-            font-size: 8px;
+            font-size: 7px;
             text-transform: uppercase;
             font-weight: 700;
             color: #000;
           }
           .status-badge {
-            font-size: 8px;
+            font-size: 7px;
             font-weight: 900;
-            padding: 2px 6px;
+            padding: 1px 4px;
             border: 1px solid #000;
             text-transform: uppercase;
             display: inline-block;
-            border-radius: 3px;
+            border-radius: 2px;
           }
           .status-badge span {
             color: white !important;
           }
           .check-box {
-            width: 12px;
-            height: 12px;
+            width: 11px;
+            height: 11px;
             border: 1px solid #000;
             display: inline-block;
           }
           .stats-row {
             display: flex;
-            gap: 4px;
-            margin-bottom: 10px;
+            gap: 2px;
+            margin-bottom: 8px;
           }
         `}</style>
 
         {/* Cabeçalho do Relatório */}
-        <div className="text-center border-b-2 border-black pb-3 mb-4">
-          <h1 className="text-xl font-black uppercase tracking-tighter text-black">Resumo Administrativo do Sistema</h1>
-          <p className="text-[9px] font-bold mt-1 uppercase text-black">EscalaPro V2.0 &bull; Relatório emitido em {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}</p>
+        <div className="text-center border-b-2 border-black pb-2 mb-3">
+          <h1 className="text-lg font-black uppercase tracking-tighter text-black">Resumo Administrativo do Sistema</h1>
+          <p className="text-[8px] font-bold mt-0.5 uppercase text-black">EscalaPro V2.0 &bull; Relatório emitido em {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}</p>
         </div>
 
         {/* Linha única de Quadros Estatísticos */}
         <div className="stats-row">
-          <div className="stat-card">
-            <span className="stat-value">{environments.length}</span>
-            <span className="stat-label">Ambientes</span>
-          </div>
-          <div className="stat-card">
-            <span className="stat-value">{employees.length}</span>
-            <span className="stat-label">Colaboradores</span>
-          </div>
-          <div className="stat-card">
-            <span className="stat-value">{categories.length}</span>
-            <span className="stat-label">Categorias</span>
-          </div>
-          <div className="stat-card">
-            <span className="stat-value">{holidays.length}</span>
-            <span className="stat-label">Feriados</span>
-          </div>
-          <div className="stat-card" style={{ borderLeftWidth: '3px', borderLeftColor: '#10b981' }}>
-            <span className="stat-value" style={{ color: '#047857' }}>{activeCount}</span>
-            <span className="stat-label">Ativos</span>
-          </div>
-          <div className="stat-card" style={{ borderLeftWidth: '3px', borderLeftColor: '#f59e0b' }}>
-            <span className="stat-value" style={{ color: '#b45309' }}>{vacationCount}</span>
-            <span className="stat-label">Férias</span>
-          </div>
-          <div className="stat-card" style={{ borderLeftWidth: '3px', borderLeftColor: '#ef4444' }}>
-            <span className="stat-value" style={{ color: '#b91c1c' }}>{leaveCount}</span>
-            <span className="stat-label">Atestado</span>
-          </div>
+          <div className="stat-card"><span className="stat-value">{environments.length}</span><span className="stat-label">Ambientes</span></div>
+          <div className="stat-card"><span className="stat-value">{employees.length}</span><span className="stat-label">Colaboradores</span></div>
+          <div className="stat-card"><span className="stat-value">{categories.length}</span><span className="stat-label">Categorias</span></div>
+          <div className="stat-card"><span className="stat-value">{holidays.length}</span><span className="stat-label">Feriados</span></div>
+          <div className="stat-card" style={{ borderLeftWidth: '3px', borderLeftColor: '#10b981' }}><span className="stat-value" style={{ color: '#047857' }}>{activeCount}</span><span className="stat-label">Ativos</span></div>
+          <div className="stat-card" style={{ borderLeftWidth: '3px', borderLeftColor: '#f59e0b' }}><span className="stat-value" style={{ color: '#b45309' }}>{vacationCount}</span><span className="stat-label">Férias</span></div>
+          <div className="stat-card" style={{ borderLeftWidth: '3px', borderLeftColor: '#ef4444' }}><span className="stat-value" style={{ color: '#b91c1c' }}>{leaveCount}</span><span className="stat-label">Atestado</span></div>
         </div>
 
         {/* Tabela de Colaboradores */}
-        <div className="mb-8">
-          <h3 className="text-sm font-black uppercase border-b border-black mb-1">Lista de Colaboradores</h3>
+        <div className="mb-6">
+          <h3 className="text-xs font-black uppercase border-b border-black mb-1">Lista de Colaboradores</h3>
           <table className="report-table">
             <thead>
               <tr>
-                <th style={{ width: '25px', textAlign: 'center' }}>[ ]</th>
-                <th style={{ width: '25px', textAlign: 'center' }}>[ ]</th>
-                <th style={{ width: '150px' }}>Nome Completo</th>
-                <th>Categoria</th>
+                <th style={{ width: '22px', textAlign: 'center' }}>[]</th>
+                <th style={{ width: '22px', textAlign: 'center' }}>[]</th>
+                <th style={{ width: '130px' }}>Nome Completo</th>
+                <th style={{ width: '100px' }}>Categoria</th>
                 <th>Ambiente Base</th>
-                <th style={{ textAlign: 'center' }}>Status</th>
-                <th style={{ textAlign: 'center' }}>Dom. (Ano)</th>
-                <th style={{ textAlign: 'center' }}>Fer. (Ano)</th>
+                <th style={{ width: '60px', textAlign: 'center' }}>Status</th>
+                <th style={{ width: '65px', textAlign: 'center' }}>Ult. Dom.</th>
+                <th style={{ width: '65px', textAlign: 'center' }}>Ult. Fer.</th>
+                <th style={{ width: '45px', textAlign: 'center' }}>Dom.(Ano)</th>
+                <th style={{ width: '45px', textAlign: 'center' }}>Fer.(Ano)</th>
               </tr>
             </thead>
             <tbody>
@@ -243,6 +225,12 @@ const ReportsOverview: React.FC<Props> = ({ employees, environments, categories,
                         <span>{emp.status}</span>
                       </span>
                     </td>
+                    <td style={{ textAlign: 'center' }} className="font-medium">
+                      {emp.lastSundayWorked ? formatDateDisplay(emp.lastSundayWorked) : '---'}
+                    </td>
+                    <td style={{ textAlign: 'center' }} className="font-medium">
+                      {emp.lastHolidayWorked ? formatDateDisplay(emp.lastHolidayWorked) : '---'}
+                    </td>
                     <td style={{ textAlign: 'center' }} className="font-black">{emp.sundaysWorkedCurrentYear}</td>
                     <td style={{ textAlign: 'center' }} className="font-black">{emp.holidaysWorkedCurrentYear}</td>
                   </tr>
@@ -253,14 +241,14 @@ const ReportsOverview: React.FC<Props> = ({ employees, environments, categories,
         </div>
 
         {/* Rodapé de Auditoria */}
-        <div className="mt-12 flex justify-between items-end border-t border-black pt-2">
+        <div className="mt-8 flex justify-between items-end border-t border-black pt-2">
           <div>
-            <p className="text-[9px] font-black uppercase">Documento para Uso Interno</p>
-            <p className="text-[8px]">EscalaPro Intelligence Systems &bull; Auditoria de Dados</p>
+            <p className="text-[8px] font-black uppercase">Documento para Uso Interno</p>
+            <p className="text-[7px]">EscalaPro Intelligence Systems &bull; Auditoria de Dados</p>
           </div>
           <div className="text-right">
-            <div className="w-32 border-b border-black mb-1"></div>
-            <p className="text-[9px] font-black uppercase">Assinatura Responsável</p>
+            <div className="w-28 border-b border-black mb-1"></div>
+            <p className="text-[8px] font-black uppercase">Assinatura Responsável</p>
           </div>
         </div>
       </div>
