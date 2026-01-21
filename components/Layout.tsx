@@ -25,7 +25,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         {children}
       </main>
       <footer className="bg-slate-950 border-t border-slate-900 py-10 text-center">
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-700">EscalaPro Intelligence Systems &bull; 2024</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-700">ESCALAPRO - DESENV: WENNEDYS NUNES</p>
       </footer>
     </div>
   );
