@@ -28,6 +28,7 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedEnvironments, setSelectedEnvironments] = useState<string[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const holidayInfo = holidays.find(h => h.date === activeDate);
   const isDaySunday = isSunday(activeDate);
@@ -65,6 +66,8 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
           environment_id: activeEnv,
           employee_id: empId
         }]);
+        // Clear search only when selecting (adding) a collaborator
+        setSearchTerm('');
       }
       await refreshData();
     } catch (err: any) {
@@ -328,6 +331,18 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
       <div className="lg:col-span-8 bg-slate-900 p-8 rounded-3xl border border-slate-800 flex flex-col h-fit">
         <div className="flex justify-between items-center mb-8 border-b border-slate-800 pb-6">
           <h3 className="text-slate-100 font-black text-lg uppercase tracking-widest">Colaboradores</h3>
+          <div className="relative w-64">
+             <input 
+                type="text" 
+                placeholder="Buscar por nome..." 
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 text-[10px] font-black uppercase p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-white pl-9 tracking-widest"
+             />
+             <svg className="w-4 h-4 text-slate-500 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+             </svg>
+          </div>
         </div>
 
         {/* Filtros Horizontais */}
@@ -365,6 +380,7 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
         <div className={`${!isSpecial ? 'opacity-20 pointer-events-none' : ''}`}>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {employees
+              .filter(e => searchTerm === '' || e.name.toLowerCase().includes(searchTerm.toLowerCase()))
               .filter(e => selectedCategories.length === 0 || selectedCategories.includes(e.categoryId))
               .filter(e => selectedEnvironments.length === 0 || selectedEnvironments.includes(e.environmentId))
               .map(e => {
