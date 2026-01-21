@@ -25,6 +25,12 @@ const AdminView: React.FC<Props> = (props) => {
   const [showEmployeeModal, setShowEmployeeModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Partial<Employee> | null>(null);
 
+  // Estados locais para inputs rápidos
+  const [newEnvName, setNewEnvName] = useState('');
+  const [newCatName, setNewCatName] = useState('');
+  const [newHolDate, setNewHolDate] = useState('');
+  const [newHolName, setNewHolName] = useState('');
+
   const handleRecalculate = async () => {
     setIsRecalculating(true);
     try {
@@ -39,7 +45,7 @@ const AdminView: React.FC<Props> = (props) => {
   };
 
   const handleAutoGenerate = async () => {
-    if (!confirm("Gerar escala inteligente para os próximos 31 dias?")) return;
+    if (!confirm("Gerar escala inteligente para os próximos 31 dias? Isso sobrescreverá assignments existentes para esses dias.")) return;
 
     setIsGenerating(true);
     const requirements: Record<string, number> = {};
@@ -81,6 +87,34 @@ const AdminView: React.FC<Props> = (props) => {
     }
   };
 
+  const handleAddEnvironment = async () => {
+    if (!newEnvName) return;
+    const { error } = await supabase.from('environments').insert([{ name: newEnvName }]);
+    if (error) alert("Erro ao adicionar ambiente");
+    else { setNewEnvName(''); await props.refreshData(); }
+  };
+
+  const handleAddCategory = async () => {
+    if (!newCatName) return;
+    const { error } = await supabase.from('categories').insert([{ name: newCatName }]);
+    if (error) alert("Erro ao adicionar categoria");
+    else { setNewCatName(''); await props.refreshData(); }
+  };
+
+  const handleAddHoliday = async () => {
+    if (!newHolDate || !newHolName) return;
+    const { error } = await supabase.from('holidays').insert([{ date: newHolDate, name: newHolName }]);
+    if (error) alert("Erro ao adicionar feriado");
+    else { setNewHolDate(''); setNewHolName(''); await props.refreshData(); }
+  };
+
+  const handleRemoveItem = async (table: string, id: string) => {
+    if (!confirm("Tem certeza que deseja remover este item?")) return;
+    const { error } = await supabase.from(table).delete().eq('id', id);
+    if (error) alert("Erro ao remover item");
+    else await props.refreshData();
+  };
+
   const handleSaveEmployee = async (e: React.FormEvent | null, closeAfter: boolean = true) => {
     if (e) e.preventDefault();
     if (!editingEmployee?.name || !editingEmployee?.categoryId || !editingEmployee?.environmentId) {
@@ -100,7 +134,6 @@ const AdminView: React.FC<Props> = (props) => {
       if (editingEmployee.id) {
         res = await supabase.from('employees').update(payload).eq('id', editingEmployee.id);
       } else {
-        // Fix for Error on line 108: Completed the shorthand property and added missing tracking fields
         res = await supabase.from('employees').insert([{
           ...payload,
           consecutive_sundays_off: 0,
@@ -138,7 +171,6 @@ const AdminView: React.FC<Props> = (props) => {
 
   return (
     <div className="space-y-8">
-      {/* Sidebar-like Navigation */}
       <div className="flex flex-wrap gap-2 pb-4 border-b border-slate-800">
         {[
           { id: 'general', label: 'Painel', icon: 'M4 6h16M4 12h16m-7 6h7' },
@@ -161,20 +193,93 @@ const AdminView: React.FC<Props> = (props) => {
 
       <div className="mt-8">
         {tab === 'general' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-slate-900 p-8 rounded-3xl border border-slate-800 space-y-6">
-              <h3 className="text-xl font-black uppercase tracking-tighter">Motor de Automação</h3>
-              <p className="text-slate-500 text-xs">Aplica lógica de revezamento para gerar escalas mensais inteligentes.</p>
-              <button onClick={handleAutoGenerate} disabled={isGenerating} className="w-full py-4 bg-indigo-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl">
-                {isGenerating ? "Processando..." : "Gerar Escala Mensal"}
-              </button>
+          <div className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-slate-900 p-8 rounded-3xl border border-slate-800 space-y-6">
+                <h3 className="text-xl font-black uppercase tracking-tighter">Motor de Automação</h3>
+                <p className="text-slate-500 text-xs">Aplica lógica de revezamento para gerar escalas mensais inteligentes.</p>
+                <button onClick={handleAutoGenerate} disabled={isGenerating} className="w-full py-4 bg-indigo-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl">
+                  {isGenerating ? "Processando..." : "Gerar Escala Mensal"}
+                </button>
+              </div>
+              <div className="bg-slate-900 p-8 rounded-3xl border border-slate-800 space-y-6">
+                <h3 className="text-xl font-black uppercase tracking-tighter">Sincronização</h3>
+                <p className="text-slate-500 text-xs">Recalcula todos os contadores com base nas escalas salvas.</p>
+                <button onClick={handleRecalculate} disabled={isRecalculating} className="w-full py-4 bg-slate-800 text-slate-400 font-black text-xs uppercase tracking-widest rounded-2xl border border-slate-700">
+                  {isRecalculating ? "Recalculando..." : "Recalcular Histórico"}
+                </button>
+              </div>
             </div>
-            <div className="bg-slate-900 p-8 rounded-3xl border border-slate-800 space-y-6">
-              <h3 className="text-xl font-black uppercase tracking-tighter">Sincronização</h3>
-              <p className="text-slate-500 text-xs">Recalcula todos os contadores com base nas escalas salvas.</p>
-              <button onClick={handleRecalculate} disabled={isRecalculating} className="w-full py-4 bg-slate-800 text-slate-400 font-black text-xs uppercase tracking-widest rounded-2xl border border-slate-700">
-                {isRecalculating ? "Recalculando..." : "Recalcular Histórico"}
-              </button>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Gerenciar Ambientes */}
+              <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 flex flex-col">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center">
+                  <span className="w-2 h-2 bg-indigo-500 rounded-full mr-2"></span> Ambientes
+                </h4>
+                <div className="flex-grow space-y-2 mb-4 max-h-48 overflow-y-auto custom-scrollbar">
+                  {props.environments.map(env => (
+                    <div key={env.id} className="flex justify-between items-center bg-slate-800/50 p-2.5 rounded-xl border border-slate-700">
+                      <span className="text-xs font-bold">{env.name}</span>
+                      <button onClick={() => handleRemoveItem('environments', env.id)} className="text-rose-500 hover:text-rose-400">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input value={newEnvName} onChange={e => setNewEnvName(e.target.value)} placeholder="Novo ambiente..." className="flex-grow bg-slate-800 border border-slate-700 p-2 rounded-xl text-xs outline-none focus:ring-1 focus:ring-indigo-500" />
+                  <button onClick={handleAddEnvironment} className="bg-indigo-600 px-3 py-2 rounded-xl text-white"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg></button>
+                </div>
+              </div>
+
+              {/* Gerenciar Categorias */}
+              <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 flex flex-col">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center">
+                  <span className="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span> Categorias
+                </h4>
+                <div className="flex-grow space-y-2 mb-4 max-h-48 overflow-y-auto custom-scrollbar">
+                  {props.categories.map(cat => (
+                    <div key={cat.id} className="flex justify-between items-center bg-slate-800/50 p-2.5 rounded-xl border border-slate-700">
+                      <span className="text-xs font-bold">{cat.name}</span>
+                      <button onClick={() => handleRemoveItem('categories', cat.id)} className="text-rose-500 hover:text-rose-400">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="Nova categoria..." className="flex-grow bg-slate-800 border border-slate-700 p-2 rounded-xl text-xs outline-none focus:ring-1 focus:ring-emerald-500" />
+                  <button onClick={handleAddCategory} className="bg-emerald-600 px-3 py-2 rounded-xl text-white"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg></button>
+                </div>
+              </div>
+
+              {/* Gerenciar Feriados */}
+              <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 flex flex-col">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center">
+                  <span className="w-2 h-2 bg-rose-500 rounded-full mr-2"></span> Feriados
+                </h4>
+                <div className="flex-grow space-y-2 mb-4 max-h-48 overflow-y-auto custom-scrollbar">
+                  {props.holidays.map(hol => (
+                    <div key={hol.id} className="flex justify-between items-center bg-slate-800/50 p-2.5 rounded-xl border border-slate-700">
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold">{hol.name}</span>
+                        <span className="text-[8px] text-slate-500 font-black uppercase">{new Date(hol.date + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
+                      </div>
+                      <button onClick={() => handleRemoveItem('holidays', hol.id)} className="text-rose-500 hover:text-rose-400">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-2">
+                  <input type="date" value={newHolDate} onChange={e => setNewHolDate(e.target.value)} className="w-full bg-slate-800 border border-slate-700 p-2 rounded-xl text-xs outline-none" />
+                  <div className="flex gap-2">
+                    <input value={newHolName} onChange={e => setNewHolName(e.target.value)} placeholder="Nome do feriado..." className="flex-grow bg-slate-800 border border-slate-700 p-2 rounded-xl text-xs outline-none focus:ring-1 focus:ring-rose-500" />
+                    <button onClick={handleAddHoliday} className="bg-rose-600 px-3 py-2 rounded-xl text-white"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg></button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -247,5 +352,4 @@ const AdminView: React.FC<Props> = (props) => {
   );
 };
 
-// Fix for App.tsx line 5: Added default export
 export default AdminView;

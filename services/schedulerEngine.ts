@@ -61,11 +61,22 @@ export const generateSchedule = (
 
       candidates.sort((a, b) => {
         if (isSun) {
+          // New logic: prioritize those who NEVER worked
+          const aNever = !a.lastSundayWorked;
+          const bNever = !b.lastSundayWorked;
+          if (aNever && !bNever) return -1;
+          if (!aNever && bNever) return 1;
+
           if (b.consecutiveSundaysOff !== a.consecutiveSundaysOff) {
             return b.consecutiveSundaysOff - a.consecutiveSundaysOff;
           }
           return (a.lastSundayWorked || '') > (b.lastSundayWorked || '') ? 1 : -1;
         } else {
+          const aNeverHol = !a.lastHolidayWorked;
+          const bNeverHol = !b.lastHolidayWorked;
+          if (aNeverHol && !bNeverHol) return -1;
+          if (!aNeverHol && bNeverHol) return 1;
+
           if (b.consecutiveHolidaysOff !== a.consecutiveHolidaysOff) {
             return b.consecutiveHolidaysOff - a.consecutiveHolidaysOff;
           }
@@ -85,20 +96,18 @@ export const generateSchedule = (
       workingEmployees = workingEmployees.map(emp => {
         const workedToday = dailyAssignments.some(a => a.employeeId === emp.id);
         if (isSun) {
-          const hasWorkedBefore = !!emp.lastSundayWorked;
           return {
             ...emp,
             lastSundayWorked: workedToday ? dateStr : emp.lastSundayWorked,
-            consecutiveSundaysOff: workedToday ? 0 : (hasWorkedBefore ? emp.consecutiveSundaysOff + 1 : 99),
+            consecutiveSundaysOff: workedToday ? 0 : emp.consecutiveSundaysOff + 1,
             totalSundaysWorked: workedToday ? emp.totalSundaysWorked + 1 : emp.totalSundaysWorked,
             sundaysWorkedCurrentYear: (workedToday && isTargetYear) ? emp.sundaysWorkedCurrentYear + 1 : emp.sundaysWorkedCurrentYear
           };
         } else {
-          const hasWorkedBeforeHol = !!emp.lastHolidayWorked;
           return {
             ...emp,
             lastHolidayWorked: workedToday ? dateStr : emp.lastHolidayWorked,
-            consecutiveHolidaysOff: workedToday ? 0 : (hasWorkedBeforeHol ? emp.consecutiveHolidaysOff + 1 : 99),
+            consecutiveHolidaysOff: workedToday ? 0 : emp.consecutiveHolidaysOff + 1,
             totalHolidaysWorked: workedToday ? emp.totalHolidaysWorked + 1 : emp.totalHolidaysWorked,
             holidaysWorkedCurrentYear: (workedToday && isTargetYear) ? emp.holidaysWorkedCurrentYear + 1 : emp.holidaysWorkedCurrentYear
           };

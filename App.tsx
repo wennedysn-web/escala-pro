@@ -40,11 +40,11 @@ const App: React.FC = () => {
         categoryId: e.category_id,
         environmentId: e.environment_id,
         lastSundayWorked: e.last_sunday_worked,
-        consecutiveSundaysOff: e.consecutive_sundays_off ?? 99,
+        consecutiveSundaysOff: e.consecutive_sundays_off ?? 0,
         totalSundaysWorked: e.total_sundays_worked ?? 0,
         sundaysWorkedCurrentYear: e.sundays_worked_current_year ?? 0,
         lastHolidayWorked: e.last_holiday_worked,
-        consecutiveHolidaysOff: e.consecutive_holidays_off ?? 99,
+        consecutiveHolidaysOff: e.consecutive_holidays_off ?? 0,
         totalHolidaysWorked: e.total_holidays_worked ?? 0,
         holidaysWorkedCurrentYear: e.holidays_worked_current_year ?? 0
       })));
@@ -69,7 +69,6 @@ const App: React.FC = () => {
             date: s.date,
             isSunday: s.is_sunday,
             isHoliday: s.is_holiday,
-            // Fix: Changed holiday_name to holidayName to match DaySchedule type
             holidayName: s.holiday_name,
             assignments
           };

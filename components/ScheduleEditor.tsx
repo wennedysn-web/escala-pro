@@ -144,7 +144,7 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
 
   const formatCounter = (count: number | undefined | null) => {
     if (count === undefined || count === null) return '0';
-    return count > 10 ? '>10' : count.toString();
+    return count.toString();
   };
 
   const getPriorityClasses = (count: number | undefined | null) => {
