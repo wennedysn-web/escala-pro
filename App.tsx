@@ -11,6 +11,7 @@ const App: React.FC = () => {
   const [view, setView] = useState<'public' | 'admin'>('public');
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [dbError, setDbError] = useState<string | null>(null);
   
   const [categories, setCategories] = useState<Category[]>([]);
   const [environments, setEnvironments] = useState<Environment[]>([]);
@@ -20,6 +21,7 @@ const App: React.FC = () => {
 
   const fetchData = async () => {
     try {
+      setDbError(null);
       const [cats, envs, emps, hols, schs, assigns] = await Promise.all([
         supabase.from('categories').select('*').order('name', { ascending: true }),
         supabase.from('environments').select('*').order('name', { ascending: false }),
@@ -29,25 +31,37 @@ const App: React.FC = () => {
         supabase.from('assignments').select('*')
       ]);
 
-      if (cats.error || envs.error || emps.error || hols.error || schs.error || assigns.error) {
-        throw new Error("Falha ao carregar dados do banco de dados.");
+      const errors = [cats.error, envs.error, emps.error, hols.error, schs.error, assigns.error].filter(Boolean);
+      
+      if (errors.length > 0) {
+        console.error("Erros detectados no Supabase:", errors);
+        const errorMsgs = errors.map(e => e?.message).join(' | ');
+        setDbError(`Erro na conexão: ${errorMsgs}`);
       }
 
       if (cats.data) setCategories(cats.data);
       if (envs.data) setEnvironments(envs.data);
-      if (emps.data) setEmployees(emps.data.map(e => ({
-        ...e,
-        categoryId: e.category_id,
-        environmentId: e.environment_id,
-        lastSundayWorked: e.last_sunday_worked,
-        consecutiveSundaysOff: e.consecutive_sundays_off ?? 0,
-        totalSundaysWorked: e.total_sundays_worked ?? 0,
-        sundaysWorkedCurrentYear: e.sundays_worked_current_year ?? 0,
-        lastHolidayWorked: e.last_holiday_worked,
-        consecutiveHolidaysOff: e.consecutive_holidays_off ?? 0,
-        totalHolidaysWorked: e.total_holidays_worked ?? 0,
-        holidaysWorkedCurrentYear: e.holidays_worked_current_year ?? 0
-      })));
+      
+      if (emps.data) {
+        setEmployees(emps.data.map(e => ({
+          ...e,
+          id: e.id,
+          name: e.name || 'Sem Nome',
+          categoryId: e.category_id,
+          environmentId: e.environment_id,
+          status: e.status || 'Ativo',
+          role: e.role,
+          lastSundayWorked: e.last_sunday_worked,
+          consecutiveSundaysOff: e.consecutive_sundays_off ?? 0,
+          totalSundaysWorked: e.total_sundays_worked ?? 0,
+          sundaysWorkedCurrentYear: e.sundays_worked_current_year ?? 0,
+          lastHolidayWorked: e.last_holiday_worked,
+          consecutiveHolidaysOff: e.consecutive_holidays_off ?? 0,
+          totalHolidaysWorked: e.total_holidays_worked ?? 0,
+          holidaysWorkedCurrentYear: e.holidays_worked_current_year ?? 0
+        })));
+      }
+      
       if (hols.data) setHolidays(hols.data);
       
       if (schs.data && assigns.data) {
@@ -75,19 +89,23 @@ const App: React.FC = () => {
         });
         setSchedules(builtSchedules);
       }
-    } catch (error) {
-      console.error("Erro ao carregar dados:", error);
+    } catch (error: any) {
+      console.error("Erro crítico ao carregar dados:", error);
+      setDbError(error.message || "Falha ao conectar com o servidor.");
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      fetchData().then(() => setLoading(false));
+      fetchData();
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      if (session) fetchData();
     });
 
     return () => subscription.unsubscribe();
@@ -150,6 +168,26 @@ const App: React.FC = () => {
           )}
         </div>
       </nav>
+
+      {dbError && (
+        <div className="max-w-7xl mx-auto px-4 pt-8">
+          <div className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <svg className="w-6 h-6 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+              <div className="text-left">
+                <p className="text-rose-400 font-bold text-sm">Atenção: Houve um problema ao carregar os dados.</p>
+                <p className="text-rose-500/70 text-xs font-medium">{dbError}</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => fetchData()}
+              className="px-4 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all"
+            >
+              Tentar Novamente
+            </button>
+          </div>
+        </div>
+      )}
 
       <main className="max-w-7xl mx-auto p-4 md:p-8">
         {view === 'public' ? (

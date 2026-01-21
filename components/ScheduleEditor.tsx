@@ -29,6 +29,7 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedEnvironments, setSelectedEnvironments] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [counterFilter, setCounterFilter] = useState<'none' | 'sunday' | 'holiday'>('none');
 
   const holidayInfo = holidays.find(h => h.date === activeDate);
   const isDaySunday = isSunday(activeDate);
@@ -380,6 +381,28 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
           </div>
         </div>
 
+        {/* Novo Filtro de Contadores */}
+        <div className="flex gap-2 mb-6 p-1 bg-slate-800/50 rounded-2xl border border-slate-700 w-fit">
+           <button 
+             onClick={() => setCounterFilter('none')}
+             className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${counterFilter === 'none' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+           >
+             Nenhum
+           </button>
+           <button 
+             onClick={() => setCounterFilter('sunday')}
+             className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${counterFilter === 'sunday' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-500 hover:text-slate-300'}`}
+           >
+             Contador Domingos
+           </button>
+           <button 
+             onClick={() => setCounterFilter('holiday')}
+             className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${counterFilter === 'holiday' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'text-slate-500 hover:text-slate-300'}`}
+           >
+             Contador Feriados
+           </button>
+        </div>
+
         <div className={`${!isSpecial ? 'opacity-20 pointer-events-none' : ''}`}>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {employees
@@ -392,6 +415,21 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
                 const isUsedHere = currentEnvAssigned.includes(e.id);
                 const isUsedElsewhere = assignedIds.includes(e.id) && !isUsedHere;
                 
+                // Determinando qual contador exibir no badge secundário (prioridade)
+                let badgeVal = 0;
+                let badgePrefix = '';
+                let badgeClasses = '';
+
+                if (counterFilter === 'sunday') {
+                  badgeVal = e.consecutiveSundaysOff;
+                  badgePrefix = 'D:';
+                  badgeClasses = getPriorityClasses(e.consecutiveSundaysOff);
+                } else if (counterFilter === 'holiday') {
+                  badgeVal = e.consecutiveHolidaysOff;
+                  badgePrefix = 'F:';
+                  badgeClasses = getPriorityClasses(e.consecutiveHolidaysOff);
+                }
+
                 return (
                   <button 
                     key={e.id}
@@ -415,15 +453,17 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
                       )}
                     </div>
                     <div className="flex gap-2">
-                      {isDaySunday && (
-                        <div className={`flex items-center px-1.5 py-0.5 rounded-lg border text-[9px] font-black ${getPriorityClasses(e.consecutiveSundaysOff)}`}>
-                          <span className="opacity-50 mr-1">D:</span> {formatCounter(e.consecutiveSundaysOff)}
+                      {counterFilter !== 'none' && (
+                        <div className={`flex items-center px-1.5 py-0.5 rounded-lg border text-[9px] font-black ${badgeClasses}`}>
+                          <span className="opacity-50 mr-1">{badgePrefix}</span> {formatCounter(badgeVal)}
                         </div>
                       )}
-                      {!!holidayInfo && (
-                        <div className={`flex items-center px-1.5 py-0.5 rounded-lg border text-[9px] font-black ${getPriorityClasses(e.consecutiveHolidaysOff)}`}>
-                          <span className="opacity-50 mr-1">F:</span> {formatCounter(e.consecutiveHolidaysOff)}
-                        </div>
+                      {/* Caso nenhum filtro de contador esteja ativo mas o dia seja especial, mostramos o contador contextual padrão discretamente */}
+                      {counterFilter === 'none' && isDaySunday && (
+                        <div className="text-[8px] font-black text-slate-500 uppercase">Dom: {e.consecutiveSundaysOff} folgas</div>
+                      )}
+                      {counterFilter === 'none' && !!holidayInfo && (
+                        <div className="text-[8px] font-black text-slate-500 uppercase">Fer: {e.consecutiveHolidaysOff} folgas</div>
                       )}
                     </div>
                     {isInactive && (

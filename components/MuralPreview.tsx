@@ -112,13 +112,13 @@ const MuralPreview: React.FC<Props> = ({ employees, schedules, environments, hol
           }
           .mural-table th, .mural-table td {
             border: 2px solid #000;
-            padding: 12px 16px;
+            padding: 10px 14px;
             text-align: left;
             color: black !important;
           }
           .mural-table th {
             background-color: #eee;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 900;
             text-transform: uppercase;
           }
@@ -126,29 +126,42 @@ const MuralPreview: React.FC<Props> = ({ employees, schedules, environments, hol
             background-color: #fff;
           }
           .mural-date-cell {
-            width: 180px;
+            width: 160px;
           }
           .mural-content-cell {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 800;
           }
           .mural-category-label {
-            font-size: 11px;
+            font-size: 10px;
             text-transform: uppercase;
             color: #000 !important;
-            margin-bottom: 4px;
+            margin-bottom: 3px;
             display: block;
             font-weight: 900;
           }
           .print-area h1, .print-area h2, .print-area p, .print-area span, .print-area div {
             color: black !important;
           }
+          .mural-header-container {
+            border-bottom: 3px solid #000;
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+          }
         `}</style>
 
-        <div className="mb-10 text-center border-b-4 border-black pb-6">
-          <h1 className="text-4xl font-black uppercase tracking-tight">Escala de Serviço</h1>
-          <h2 className="text-2xl font-black uppercase mt-2">{selectedEnv?.name}</h2>
-          <p className="text-lg font-bold mt-1 uppercase tracking-widest">{monthLabel} / {selectedYear} - (Domingos e Feriados)</p>
+        <div className="mural-header-container">
+          <div className="text-left">
+            <h1 className="text-2xl font-black uppercase tracking-tight leading-none">Escala de Serviço</h1>
+            <h2 className="text-lg font-black uppercase mt-1 text-slate-700">{selectedEnv?.name}</h2>
+          </div>
+          <div className="text-right">
+            <p className="text-sm font-black uppercase tracking-widest">{monthLabel} / {selectedYear}</p>
+            <p className="text-[10px] font-bold uppercase">(Domingos e Feriados)</p>
+          </div>
         </div>
 
         <table className="mural-table">
@@ -176,21 +189,21 @@ const MuralPreview: React.FC<Props> = ({ employees, schedules, environments, hol
                 <tr key={date} className="mural-row-special">
                   <td className="mural-date-cell">
                     <div className="flex flex-col">
-                      <span className="text-2xl font-black">{dayNum}/{selectedMonth + 1}</span>
-                      <span className="text-sm font-bold uppercase">{dayOfWeek}</span>
-                      {holiday && <span className="text-xs font-black uppercase border-t border-black/10 mt-1 pt-1">{holiday.name}</span>}
-                      {isSun && !holiday && <span className="text-xs font-black uppercase border-t border-black/10 mt-1 pt-1">Domingo</span>}
+                      <span className="text-xl font-black leading-none">{dayNum}/{selectedMonth + 1}</span>
+                      <span className="text-[10px] font-bold uppercase mt-1">{dayOfWeek}</span>
+                      {holiday && <span className="text-[9px] font-black uppercase border-t border-black/10 mt-1 pt-0.5">{holiday.name}</span>}
+                      {isSun && !holiday && <span className="text-[9px] font-black uppercase border-t border-black/10 mt-1 pt-0.5">Domingo</span>}
                     </div>
                   </td>
                   <td className="mural-content-cell">
-                    <div className="flex flex-col gap-6">
+                    <div className="flex flex-col gap-4">
                       {categories.map(cat => {
-                        const catEmployees = envEmployees.filter(emp => emp.categoryId === cat.id);
+                        const catEmployees = envEmployees.filter(emp => emp.categoryId === cat.id).sort((a,b) => a.name.localeCompare(b.name));
                         if (catEmployees.length === 0) return null;
                         return (
                           <div key={cat.id}>
                             <span className="mural-category-label">{cat.name}</span>
-                            <div className="text-2xl font-black text-black leading-tight">
+                            <div className="text-xl font-black text-black leading-tight">
                               {catEmployees.map(e => e.name).join(' - ')}
                             </div>
                           </div>
@@ -198,7 +211,7 @@ const MuralPreview: React.FC<Props> = ({ employees, schedules, environments, hol
                       })}
                       {envEmployees.length === 0 && (
                         <div className="text-center w-full">
-                          <span className="italic text-xl font-bold">Sem Escala Definida</span>
+                          <span className="italic text-lg font-bold opacity-30">Sem Escala Definida</span>
                         </div>
                       )}
                     </div>
@@ -210,16 +223,15 @@ const MuralPreview: React.FC<Props> = ({ employees, schedules, environments, hol
         </table>
 
         {days.length === 0 && (
-          <div className="py-20 text-center text-black text-2xl font-black uppercase">Nenhuma escala para domingos/feriados publicada.</div>
+          <div className="py-20 text-center text-black text-2xl font-black uppercase">Nenhuma escala publicada.</div>
         )}
 
-        <div className="mt-20 flex justify-between items-end">
-          <div className="w-1/3 border-t-4 border-black pt-4 text-center">
-            <span className="text-sm font-black uppercase">Visto Gerência</span>
+        <div className="mt-8 flex justify-between items-end border-t-2 border-black/10 pt-4">
+          <div className="w-1/3 border-t-2 border-black pt-2 text-center">
+            <span className="text-[10px] font-black uppercase">Visto Gerência</span>
           </div>
           <div className="text-right">
-             <p className="text-xs font-black uppercase">Documento Oficial de Escala</p>
-             <p className="text-xs font-bold">Gerado em {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}</p>
+             <p className="text-[9px] font-black uppercase">Gerado em {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}</p>
           </div>
         </div>
       </div>
