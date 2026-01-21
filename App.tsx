@@ -1,14 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { Category, Environment, Employee, Holiday, DaySchedule, ScheduleAssignment } from './types';
-import PublicView from './components/PublicView';
 import AdminView from './components/AdminView';
 import AdminLogin from './components/AdminLogin';
 import { supabase } from './lib/supabase';
-import { getLocalDateString } from './utils/dateUtils';
 
 const App: React.FC = () => {
-  const [view, setView] = useState<'public' | 'admin'>('public');
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState<string | null>(null);
@@ -37,7 +34,6 @@ const App: React.FC = () => {
         }
       };
 
-      // Nota: Com RLS habilitado no Supabase, o select '*' já filtra automaticamente pelo user_id do usuário logado.
       const [cats, envs, emps, hols, schs, assigns] = await Promise.all([
         fetchTable('categories', supabase.from('categories').select('*').order('name', { ascending: true })),
         fetchTable('environments', supabase.from('environments').select('*').order('name', { ascending: false })),
@@ -139,7 +135,6 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    setView('public');
   };
 
   if (loading) {
@@ -156,7 +151,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-950 font-sans text-slate-100 selection:bg-indigo-500/30">
       <nav className="bg-slate-900/80 backdrop-blur-xl border-b border-slate-800 sticky top-0 z-40 px-4 py-3 flex justify-between items-center shadow-2xl">
-        <div className="flex items-center space-x-3 group cursor-pointer" onClick={() => setView('public')}>
+        <div className="flex items-center space-x-3 group cursor-default">
           <div className="bg-indigo-600 text-white p-2 rounded-xl shadow-lg shadow-indigo-600/20 group-hover:scale-110 transition-transform">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -166,31 +161,22 @@ const App: React.FC = () => {
         </div>
         
         <div className="flex items-center space-x-4">
-          <div className="flex space-x-1 bg-slate-800/50 p-1 rounded-2xl border border-slate-700/50">
-            <button 
-              onClick={() => setView('public')} 
-              className={`px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${view === 'public' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-            >
-              Público
-            </button>
-            <button 
-              onClick={() => setView('admin')} 
-              className={`px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${view === 'admin' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-            >
-              Admin
-            </button>
-          </div>
-          
           {session && (
-            <button 
-              onClick={handleLogout}
-              className="p-2.5 bg-rose-500/10 text-rose-500 rounded-xl border border-rose-500/20 hover:bg-rose-500/20 transition-colors"
-              title="Sair"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-4">
+              <div className="hidden sm:block text-right">
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest leading-none">Acesso Restrito</p>
+                <p className="text-[10px] font-bold text-slate-300 truncate max-w-[150px]">{session.user.email}</p>
+              </div>
+              <button 
+                onClick={handleLogout}
+                className="p-2.5 bg-rose-500/10 text-rose-500 rounded-xl border border-rose-500/20 hover:bg-rose-500/20 transition-colors"
+                title="Sair"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </button>
+            </div>
           )}
         </div>
       </nav>
@@ -216,28 +202,18 @@ const App: React.FC = () => {
       )}
 
       <main className="max-w-7xl mx-auto p-4 md:p-8">
-        {view === 'public' ? (
-          <PublicView 
-            employees={employees} 
-            schedules={schedules} 
-            environments={environments}
-            holidays={holidays}
-            categories={categories}
-          />
+        {!session ? (
+          <AdminLogin />
         ) : (
-          !session ? (
-            <AdminLogin />
-          ) : (
-            <AdminView 
-              userId={session.user.id}
-              categories={categories} setCategories={setCategories}
-              environments={environments} setEnvironments={setEnvironments}
-              employees={employees} setEmployees={setEmployees}
-              holidays={holidays} setHolidays={setHolidays}
-              schedules={schedules} setSchedules={setSchedules}
-              refreshData={fetchData}
-            />
-          )
+          <AdminView 
+            userId={session.user.id}
+            categories={categories} setCategories={setCategories}
+            environments={environments} setEnvironments={setEnvironments}
+            employees={employees} setEmployees={setEmployees}
+            holidays={holidays} setHolidays={setHolidays}
+            schedules={schedules} setSchedules={setSchedules}
+            refreshData={fetchData}
+          />
         )}
       </main>
       
