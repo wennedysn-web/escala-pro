@@ -178,6 +178,24 @@ const ScheduleEditor: React.FC<Props> = ({ employees, categories, environments, 
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 relative">
+      {/* Loading Overlay para Sincronização */}
+      {isConfirming && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-slate-900 border border-slate-800 p-10 rounded-3xl shadow-2xl flex flex-col items-center space-y-6 max-w-sm text-center">
+            <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin shadow-[0_0_15px_rgba(16,185,129,0.3)]"></div>
+            <div className="space-y-2">
+              <h3 className="text-xl font-black uppercase tracking-tighter text-white">Sincronizando Dia</h3>
+              <p className="text-slate-500 text-xs font-bold uppercase tracking-widest leading-relaxed">Efetivando escala e atualizando contadores de folgas...</p>
+            </div>
+            <div className="flex space-x-2">
+               <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce"></div>
+               <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce [animation-delay:0.2s]"></div>
+               <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce [animation-delay:0.4s]"></div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal de Checklist */}
       {isChecklistOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-200">

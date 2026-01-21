@@ -133,6 +133,29 @@ const AdminView: React.FC<Props> = (props) => {
 
   return (
     <div className="space-y-8">
+      {/* Loading Overlay Global para Operações Críticas */}
+      {isRecalculating && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-slate-900 border border-slate-800 p-10 rounded-3xl shadow-2xl flex flex-col items-center space-y-6 max-w-sm text-center">
+            <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin shadow-lg"></div>
+            <div className="space-y-2">
+              <h3 className="text-xl font-black uppercase tracking-tighter text-white">Recalculando Histórico</h3>
+              <p className="text-slate-500 text-xs font-bold uppercase tracking-widest leading-relaxed">Sincronizando todos os contadores e auditorias do sistema...</p>
+            </div>
+            <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+               <div className="h-full bg-indigo-600 animate-[loading_2s_ease-in-out_infinite]"></div>
+            </div>
+            <style>{`
+              @keyframes loading {
+                0% { width: 0%; transform: translateX(-100%); }
+                50% { width: 70%; transform: translateX(50%); }
+                100% { width: 0%; transform: translateX(200%); }
+              }
+            `}</style>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-2 pb-4 border-b border-slate-800">
         {[
           { id: 'general', label: 'Painel', icon: 'M4 6h16M4 12h16m-7 6h7' },
@@ -144,6 +167,7 @@ const AdminView: React.FC<Props> = (props) => {
         ].map((t) => (
           <button
             key={t.id}
+            disabled={isRecalculating}
             onClick={() => setTab(t.id as any)}
             className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${tab === t.id ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300 bg-slate-900/50 border border-slate-800'}`}
           >
@@ -268,7 +292,16 @@ const AdminView: React.FC<Props> = (props) => {
                     </div>
                   </div>
                   <h4 className="font-bold">{emp.name}</h4>
-                  <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">{props.categories.find(c => c.id === emp.categoryId)?.name}</p>
+                  <div className="flex flex-wrap gap-2 items-center mt-1">
+                    <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">{props.categories.find(c => c.id === emp.categoryId)?.name}</p>
+                    <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border ${
+                      emp.status === 'Ativo' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 
+                      emp.status === 'Férias' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 
+                      'bg-rose-500/10 text-rose-500 border-rose-500/20'
+                    }`}>
+                      {emp.status}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -305,6 +338,19 @@ const AdminView: React.FC<Props> = (props) => {
                 <select required value={editingEmployee?.environmentId || ''} onChange={e => setEditingEmployee({...editingEmployee!, environmentId: e.target.value})} className="bg-slate-800 border border-slate-700 p-3 rounded-xl text-white outline-none">
                   <option value="">Ambiente Base</option>
                   {sortedEnvs.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Situação / Status</label>
+                <select 
+                  required 
+                  value={editingEmployee?.status || 'Ativo'} 
+                  onChange={e => setEditingEmployee({...editingEmployee!, status: e.target.value as EmployeeStatus})} 
+                  className="w-full bg-slate-800 border border-slate-700 p-3 rounded-xl text-white outline-none"
+                >
+                  <option value="Ativo">Ativo</option>
+                  <option value="Férias">Férias</option>
+                  <option value="Atestado">Atestado / Afastado</option>
                 </select>
               </div>
               <div className="flex gap-4 pt-6">
