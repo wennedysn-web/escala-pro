@@ -94,6 +94,12 @@ const AdminView: React.FC<Props> = (props) => {
       alert("Preencha todos os campos obrigatórios."); return;
     }
     
+    // Limitation check: 55 employees limit
+    if (!editingEmployee.id && props.employees.length >= 55) {
+      alert("LIMITE DE COLABORADORES ATINGIDO, FAÇA UPGRADE NO BANCO DE DADOS DO SUPABASE");
+      return;
+    }
+
     const payload = {
       name: editingEmployee.name,
       category_id: editingEmployee.categoryId,
@@ -294,6 +300,15 @@ const AdminView: React.FC<Props> = (props) => {
                  <button onClick={() => { setEditingEmployee({}); setShowEmployeeModal(true); }} className="whitespace-nowrap bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-indigo-600/20 active:scale-95 transition-transform">+ Adicionar</button>
               </div>
             </div>
+
+            {props.employees.length >= 55 && (
+              <div className="p-3 border-2 border-dashed border-rose-500/50 rounded-xl bg-rose-500/5">
+                <p className="text-[9px] font-black text-rose-400 uppercase tracking-widest text-center leading-tight">
+                  limite de colaboradores atingido, faça upgrade no banco de dados do supabase
+                </p>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredEmployees.map(emp => (
                 <div key={emp.id} className="bg-slate-900 p-6 rounded-3xl border border-slate-800 hover:border-slate-700 transition-all group">
