@@ -45,6 +45,13 @@ const AdminView: React.FC<Props> = (props) => {
 
   const handleAddEnvironment = async () => {
     if (!newEnvName) return;
+
+    // Limitation check: only 2 environments allowed
+    if (props.environments.length >= 2) {
+      alert("Não é possível cadastrar um novo ambiente. As tabelas de relacionamento do Supabase estão operando em modo limitado. Para habilitar novos cadastros, é necessário realizar o upgrade do plano!");
+      return;
+    }
+
     const { error } = await supabase.from('environments').insert([{ 
       name: newEnvName, 
       user_id: props.userId 
@@ -205,9 +212,16 @@ const AdminView: React.FC<Props> = (props) => {
                     </div>
                   ))}
                 </div>
-                <div className="flex gap-2">
-                  <input value={newEnvName} onChange={e => setNewEnvName(e.target.value)} placeholder="Novo ambiente..." className="flex-grow bg-slate-800 border border-slate-700 p-2 rounded-xl text-xs outline-none focus:ring-1 focus:ring-indigo-500" />
-                  <button onClick={handleAddEnvironment} className="bg-indigo-600 px-3 py-2 rounded-xl text-white"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg></button>
+                <div className="flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <input value={newEnvName} onChange={e => setNewEnvName(e.target.value)} placeholder="Novo ambiente..." className="flex-grow bg-slate-800 border border-slate-700 p-2 rounded-xl text-xs outline-none focus:ring-1 focus:ring-indigo-500" />
+                    <button onClick={handleAddEnvironment} className="bg-indigo-600 px-3 py-2 rounded-xl text-white transition-all hover:scale-105 active:scale-95"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg></button>
+                  </div>
+                  {props.environments.length >= 2 && (
+                    <p className="text-[8px] font-bold text-amber-500 uppercase leading-tight mt-1">
+                      Limite de ambientes atingido.
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -227,7 +241,7 @@ const AdminView: React.FC<Props> = (props) => {
                 </div>
                 <div className="flex gap-2">
                   <input value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="Nova categoria..." className="flex-grow bg-slate-800 border border-slate-700 p-2 rounded-xl text-xs outline-none focus:ring-1 focus:ring-emerald-500" />
-                  <button onClick={handleAddCategory} className="bg-emerald-600 px-3 py-2 rounded-xl text-white"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg></button>
+                  <button onClick={handleAddCategory} className="bg-emerald-600 px-3 py-2 rounded-xl text-white transition-all hover:scale-105 active:scale-95"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg></button>
                 </div>
               </div>
 
@@ -252,7 +266,7 @@ const AdminView: React.FC<Props> = (props) => {
                   <input type="date" value={newHolDate} onChange={e => setNewHolDate(e.target.value)} className="w-full bg-slate-800 border border-slate-700 p-2 rounded-xl text-xs outline-none" />
                   <div className="flex gap-2">
                     <input value={newHolName} onChange={e => setNewHolName(e.target.value)} placeholder="Nome do feriado..." className="flex-grow bg-slate-800 border border-slate-700 p-2 rounded-xl text-xs outline-none focus:ring-1 focus:ring-rose-500" />
-                    <button onClick={handleAddHoliday} className="bg-rose-600 px-3 py-2 rounded-xl text-white"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg></button>
+                    <button onClick={handleAddHoliday} className="bg-rose-600 px-3 py-2 rounded-xl text-white transition-all hover:scale-105 active:scale-95"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg></button>
                   </div>
                 </div>
               </div>
