@@ -48,7 +48,7 @@ const AdminView: React.FC<Props> = (props) => {
 
     // Limitation check: only 2 environments allowed
     if (props.environments.length >= 2) {
-      alert("Não é possível cadastrar um novo ambiente. As tabelas de relacionamento do Supabase estão operando em modo limitado. Para habilitar novos cadastros, é necessário realizar o upgrade do plano!");
+      alert("LIMITE DE AMBIENTE ATINGIDO, FAÇA UPGRADE NO BANCO DE DADOS DO SUPABASE");
       return;
     }
 
@@ -218,9 +218,11 @@ const AdminView: React.FC<Props> = (props) => {
                     <button onClick={handleAddEnvironment} className="bg-indigo-600 px-3 py-2 rounded-xl text-white transition-all hover:scale-105 active:scale-95"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg></button>
                   </div>
                   {props.environments.length >= 2 && (
-                    <p className="text-[8px] font-bold text-amber-500 uppercase leading-tight mt-1">
-                      Limite de ambientes atingido.
-                    </p>
+                    <div className="mt-4 p-3 border-2 border-dashed border-indigo-500/50 rounded-xl bg-indigo-500/5">
+                      <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest text-center leading-tight">
+                        LIMITE DE AMBIENTE ATINGIDO, FAÇA UPGRADE NO BANCO DE DADOS DO SUPABASE
+                      </p>
+                    </div>
                   )}
                 </div>
               </div>
