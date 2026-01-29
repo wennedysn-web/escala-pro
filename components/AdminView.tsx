@@ -33,7 +33,7 @@ const AdminView: React.FC<Props> = (props) => {
   const handleRecalculate = async () => {
     setIsRecalculating(true);
     try {
-      await recalculateAllEmployeeCounters(props.employees, props.holidays);
+      await recalculateAllEmployeeCounters(props.userId, props.employees, props.holidays);
       await props.refreshData();
     } catch (err) {
       console.error(err);
@@ -46,9 +46,8 @@ const AdminView: React.FC<Props> = (props) => {
   const handleAddEnvironment = async () => {
     if (!newEnvName) return;
 
-    // Limitation check: only 2 environments allowed
     if (props.environments.length >= 2) {
-      alert("LIMITE DE AMBIENTE ATINGIDO, FAÇA UPGRADE NO BANCO DE DADOS DO SUPABASE");
+      alert("LIMITE DE AMBIENTE ATINGIDO.");
       return;
     }
 
@@ -82,7 +81,7 @@ const AdminView: React.FC<Props> = (props) => {
   };
 
   const handleRemoveItem = async (table: string, id: string, name: string) => {
-    if (!confirm(`TEM CERTEZA que deseja EXCLUIR permanentemente "${name}"?`)) return;
+    if (!confirm(`TEM CERTEZA que deseja EXCLUIR "${name}"?`)) return;
     const { error } = await supabase.from(table).delete().eq('id', id);
     if (error) alert("Erro ao remover item");
     else await props.refreshData();
@@ -94,12 +93,6 @@ const AdminView: React.FC<Props> = (props) => {
       alert("Preencha todos os campos obrigatórios."); return;
     }
     
-    // Limitation check: 55 employees limit
-    if (!editingEmployee.id && props.employees.length >= 55) {
-      alert("LIMITE DE COLABORADORES ATINGIDO, FAÇA UPGRADE NO BANCO DE DADOS DO SUPABASE");
-      return;
-    }
-
     const payload = {
       name: editingEmployee.name,
       category_id: editingEmployee.categoryId,
@@ -116,10 +109,10 @@ const AdminView: React.FC<Props> = (props) => {
       } else {
         res = await supabase.from('employees').insert([{
           ...payload,
-          consecutive_sundays_off: 10, // Começa com 10 para prioridade máxima
+          consecutive_sundays_off: 10,
           total_sundays_worked: 0,
           sundays_worked_current_year: 0,
-          consecutive_holidays_off: 10, // Começa com 10 para prioridade máxima
+          consecutive_holidays_off: 10,
           total_holidays_worked: 0,
           holidays_worked_current_year: 0
         }]);
@@ -138,7 +131,7 @@ const AdminView: React.FC<Props> = (props) => {
   };
 
   const handleDeleteEmployee = async (id: string, name: string) => {
-    if (!confirm(`Excluir o colaborador "${name}" permanentemente?`)) return;
+    if (!confirm(`Excluir o colaborador "${name}"?`)) return;
     try {
       const { error } = await supabase.from('employees').delete().eq('id', id);
       if (error) throw error;
@@ -162,8 +155,8 @@ const AdminView: React.FC<Props> = (props) => {
           <div className="bg-slate-900 border border-slate-800 p-10 rounded-3xl shadow-2xl flex flex-col items-center space-y-6 max-w-sm text-center">
             <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin shadow-lg"></div>
             <div className="space-y-2">
-              <h3 className="text-xl font-black uppercase tracking-tighter text-white">Recalculando Histórico</h3>
-              <p className="text-slate-500 text-xs font-bold uppercase tracking-widest leading-relaxed">Sincronizando seus dados personalizados...</p>
+              <h3 className="text-xl font-black uppercase tracking-tighter text-white">Sincronizando Banco de Dados</h3>
+              <p className="text-slate-500 text-xs font-bold uppercase tracking-widest leading-relaxed">Atualizando dados globais compartilhados...</p>
             </div>
           </div>
         </div>
@@ -195,10 +188,10 @@ const AdminView: React.FC<Props> = (props) => {
           <div className="space-y-8">
             <div className="grid grid-cols-1 gap-6">
               <div className="bg-slate-900 p-8 rounded-3xl border border-slate-800 space-y-6">
-                <h3 className="text-xl font-black uppercase tracking-tighter">Sincronização</h3>
-                <p className="text-slate-500 text-xs">Recalcula todos os contadores com base nas suas escalas salvas.</p>
+                <h3 className="text-xl font-black uppercase tracking-tighter">Dados Compartilhados</h3>
+                <p className="text-slate-500 text-xs">As alterações feitas aqui refletem em todas as contas conectadas ao sistema.</p>
                 <button onClick={handleRecalculate} disabled={isRecalculating} className="w-full max-w-sm py-4 bg-slate-800 text-slate-400 font-black text-xs uppercase tracking-widest rounded-2xl border border-slate-700 hover:bg-slate-700 transition-colors">
-                  {isRecalculating ? "Recalculando..." : "Recalcular Histórico"}
+                  {isRecalculating ? "Recalculando..." : "Sincronizar Histórico Global"}
                 </button>
               </div>
             </div>
@@ -223,13 +216,6 @@ const AdminView: React.FC<Props> = (props) => {
                     <input value={newEnvName} onChange={e => setNewEnvName(e.target.value)} placeholder="Novo ambiente..." className="flex-grow bg-slate-800 border border-slate-700 p-2 rounded-xl text-xs outline-none focus:ring-1 focus:ring-indigo-500" />
                     <button onClick={handleAddEnvironment} className="bg-indigo-600 px-3 py-2 rounded-xl text-white transition-all hover:scale-105 active:scale-95"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg></button>
                   </div>
-                  {props.environments.length >= 2 && (
-                    <div className="mt-4 p-3 border-2 border-dashed border-indigo-500/50 rounded-xl bg-indigo-500/5">
-                      <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest text-center leading-tight">
-                        LIMITE DE AMBIENTE ATINGIDO, FAÇA UPGRADE NO BANCO DE DADOS DO SUPABASE
-                      </p>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -285,12 +271,12 @@ const AdminView: React.FC<Props> = (props) => {
         {tab === 'employees' && (
           <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <h2 className="text-2xl font-black uppercase tracking-tighter">Colaboradores</h2>
+              <h2 className="text-2xl font-black uppercase tracking-tighter">Equipe Global</h2>
               <div className="flex flex-grow w-full md:w-auto md:max-w-md items-center gap-4">
                  <div className="relative flex-grow">
                     <input 
                       type="text" 
-                      placeholder="Pesquisar por nome..." 
+                      placeholder="Pesquisar colaborador..." 
                       value={empSearch}
                       onChange={e => setEmpSearch(e.target.value)}
                       className="w-full bg-slate-900 border border-slate-800 text-xs font-black uppercase tracking-widest p-3 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all pl-10"
@@ -300,14 +286,6 @@ const AdminView: React.FC<Props> = (props) => {
                  <button onClick={() => { setEditingEmployee({}); setShowEmployeeModal(true); }} className="whitespace-nowrap bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-indigo-600/20 active:scale-95 transition-transform">+ Adicionar</button>
               </div>
             </div>
-
-            {props.employees.length >= 55 && (
-              <div className="p-3 border-2 border-dashed border-rose-500/50 rounded-xl bg-rose-500/5">
-                <p className="text-[9px] font-black text-rose-400 uppercase tracking-widest text-center leading-tight">
-                  limite de colaboradores atingido, faça upgrade no banco de dados do supabase
-                </p>
-              </div>
-            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredEmployees.map(emp => (

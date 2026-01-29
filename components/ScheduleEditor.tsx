@@ -21,6 +21,7 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
   const [activeEnv, setActiveEnv] = useState(environments[0]?.id || '');
   const [isConfirming, setIsConfirming] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSilentProcessing, setIsSilentProcessing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   
   const [isChecklistOpen, setIsChecklistOpen] = useState(false);
@@ -51,45 +52,41 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
 
     const isAlreadyAssigned = currentEnvAssigned.includes(empId);
     
-    // Forçar exibição do processamento IMEDIATAMENTE
-    setIsProcessing(true);
+    if (isAlreadyAssigned) {
+      setIsSilentProcessing(true);
+    } else {
+      setIsProcessing(true);
+    }
     
     try {
       if (isAlreadyAssigned) {
-        // 1. Remover vínculo no Supabase
         const { error: delError } = await supabase.from('assignments')
           .delete()
-          .match({ 
-            date: activeDate, 
-            environment_id: activeEnv, 
-            employee_id: empId, 
-            user_id: userId 
-          });
+          .eq('date', activeDate)
+          .eq('environment_id', activeEnv)
+          .eq('employee_id', empId);
         
         if (delError) throw delError;
 
-        // 2. Verificar se o dia ficou órfão (sem mais ninguém escalado em NENHUM ambiente)
         const { data: remaining, error: checkError } = await supabase.from('assignments')
           .select('id')
           .eq('date', activeDate)
-          .eq('user_id', userId)
           .limit(1);
 
         if (!checkError && (!remaining || remaining.length === 0)) {
-           // Se não sobrou ninguém no dia inteiro, remove o registro mestre de 'schedules'
-           await supabase.from('schedules').delete().match({ date: activeDate, user_id: userId });
+           await supabase.from('schedules')
+            .delete()
+            .eq('date', activeDate);
         }
       } else {
-        // Adicionar escala mestre se não existir
         await supabase.from('schedules').upsert({
           date: activeDate,
           is_sunday: isDaySunday,
           is_holiday: !!holidayInfo,
           holiday_name: holidayInfo?.name || null,
           user_id: userId
-        }, { onConflict: 'date,user_id' });
+        }, { onConflict: 'date' });
 
-        // Adicionar novo vínculo
         const { error: insError } = await supabase.from('assignments').insert([{
           date: activeDate,
           environment_id: activeEnv,
@@ -101,16 +98,14 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
         setSearchTerm('');
       }
       
-      // 3. Recalcular contadores IMEDIATAMENTE após qualquer alteração
-      await recalculateAllEmployeeCounters(employees, holidays);
-      
-      // 4. Sincronizar UI
+      await recalculateAllEmployeeCounters(userId, employees, holidays);
       await refreshData();
     } catch (err: any) {
-      console.error("Erro na sincronização:", err);
-      alert("Falha ao salvar alteração. Verifique sua conexão.");
+      console.error("Erro na sincronização de escala:", err);
+      alert("Falha ao salvar alteração.");
     } finally {
       setIsProcessing(false);
+      setIsSilentProcessing(false);
     }
   };
 
@@ -119,24 +114,21 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
 
     setIsProcessing(true);
     try {
-      // 1. Deletar todos os assignments do dia
-      const { error: err1 } = await supabase.from('assignments').delete().match({ date: activeDate, user_id: userId });
-      if (err1) throw err1;
-
-      // 2. Deletar o registro de schedule do dia
-      const { error: err2 } = await supabase.from('schedules').delete().match({ date: activeDate, user_id: userId });
-      if (err2) throw err2;
-
-      // 3. Recalcular contadores
-      await recalculateAllEmployeeCounters(employees, holidays);
+      await supabase.from('assignments')
+        .delete()
+        .eq('date', activeDate);
       
-      // 4. Atualizar dados na UI
+      await supabase.from('schedules')
+        .delete()
+        .eq('date', activeDate);
+      
+      await recalculateAllEmployeeCounters(userId, employees, holidays);
       await refreshData();
       
       alert("Escala do dia removida com sucesso.");
     } catch (err) {
-      console.error("Erro ao excluir escala:", err);
-      alert("Erro ao excluir escala. Verifique sua conexão.");
+      console.error("Erro ao excluir escala total:", err);
+      alert("Erro ao excluir escala.");
     } finally {
       setIsProcessing(false);
     }
@@ -166,7 +158,7 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
     setIsChecklistOpen(false);
     
     try {
-      await recalculateAllEmployeeCounters(employees, holidays);
+      await recalculateAllEmployeeCounters(userId, employees, holidays);
       await refreshData();
       
       setShowSuccess(true);
@@ -220,13 +212,13 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
       {(isConfirming || isProcessing) && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
           <div className="bg-slate-900 border border-slate-800 p-10 rounded-3xl shadow-2xl flex flex-col items-center space-y-6 max-w-sm text-center">
-            <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin shadow-[0_0_15px_rgba(99,102,241,0.3)]"></div>
+            <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
             <div className="space-y-2">
               <h3 className="text-xl font-black uppercase tracking-tighter text-white">
-                {isProcessing ? "Processando..." : "Sincronizando Dia"}
+                {isProcessing ? "Sincronizando..." : "Efetivando Escala"}
               </h3>
               <p className="text-slate-500 text-xs font-bold uppercase tracking-widest leading-relaxed">
-                {isProcessing ? "Gravando alteração e atualizando contadores..." : "Efetivando escala e atualizando seus contadores..."}
+                Aguarde enquanto os dados globais são atualizados.
               </p>
             </div>
           </div>
@@ -290,15 +282,15 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
             </div>
 
             <div className="mt-8 flex gap-4">
-              <button onClick={() => setIsChecklistOpen(false)} className="flex-1 py-4 bg-slate-800 text-slate-400 font-bold rounded-2xl hover:bg-slate-700 transition-colors text-xs uppercase tracking-widest">Corrigir</button>
-              <button onClick={handleFinalConfirm} disabled={!isChecklistComplete()} className={`flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${isChecklistComplete() ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}>Confirmar Escala</button>
+              <button onClick={() => setIsChecklistOpen(false)} className="flex-1 py-4 bg-slate-800 text-slate-400 rounded-xl font-black text-xs uppercase">Corrigir</button>
+              <button onClick={handleFinalConfirm} disabled={!isChecklistComplete()} className={`flex-1 py-4 rounded-xl font-black text-xs uppercase transition-all ${isChecklistComplete() ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}>Confirmar Global</button>
             </div>
           </div>
         </div>
       )}
 
       {/* PAINEL ESQUERDO: SELEÇÃO E VISUALIZAÇÃO DO DIA */}
-      <div className="lg:col-span-4 bg-slate-900 p-6 rounded-3xl border border-slate-800 flex flex-col h-fit sticky top-24">
+      <div className="lg:col-span-4 bg-slate-900 p-6 rounded-3xl border border-slate-800 flex flex-col h-fit sticky top-24 shadow-2xl">
         <div className="flex flex-col mb-6 gap-4 border-b border-slate-800 pb-6">
           <div className="space-y-1">
             <h3 className="font-black text-xl text-slate-100">{formatDateDisplay(activeDate)}</h3>
@@ -319,17 +311,17 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
         <div className="mb-8">
           {!isSpecial && (
             <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl mb-4">
-              <p className="text-[10px] text-amber-400 font-bold text-center uppercase tracking-widest">Edição permitida apenas em Domingos ou Feriados.</p>
+              <p className="text-[10px] text-amber-400 font-bold text-center uppercase tracking-widest">Escalas comuns são geradas automaticamente.</p>
             </div>
           )}
 
           <div className={`space-y-4 ${!isSpecial ? 'opacity-30 pointer-events-none' : ''}`}>
-             <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-1">Escalados para {currentEnvName}</p>
+             <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-1">Escalados (Visualização Global)</p>
             {sortedCats.map(cat => (
               <div key={cat.id} className="p-4 bg-slate-800/40 rounded-2xl border border-slate-800 group hover:border-slate-700 transition-colors">
                 <div className="flex justify-between items-center mb-3">
                   <h4 className="font-black text-slate-400 text-[9px] uppercase tracking-widest">{cat.name}</h4>
-                  <span className="text-[10px] font-black bg-indigo-600 text-white w-6 h-6 flex items-center justify-center rounded-lg shadow-inner">{getCategoryCount(cat.id)}</span>
+                  <span className="text-[10px] font-black bg-indigo-600 text-white w-6 h-6 flex items-center justify-center rounded-lg">{getCategoryCount(cat.id)}</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {currentEnvAssigned
@@ -338,10 +330,16 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
                     .map(e => e && (
                       <div key={e.id} className="px-2.5 py-1.5 bg-slate-800 border border-indigo-500/40 text-indigo-100 text-[10px] font-bold rounded-xl flex items-center shadow-md animate-in zoom-in-95 duration-200">
                         <span className="truncate max-w-[100px]">{e.name}</span>
-                        <button onClick={() => toggleEmployee(e.id)} className="ml-2 text-rose-500 font-black hover:scale-125 transition-transform" title="Remover da escala">&times;</button>
+                        <button 
+                          onClick={() => toggleEmployee(e.id)} 
+                          className={`ml-2 text-rose-500 font-black hover:scale-125 transition-transform ${isSilentProcessing ? 'animate-pulse pointer-events-none opacity-50' : ''}`} 
+                          title="Remover"
+                        >
+                          &times;
+                        </button>
                       </div>
                     ))}
-                  {getCategoryCount(cat.id) === 0 && <span className="text-[8px] text-slate-600 font-bold uppercase tracking-tighter">Ninguém escalado</span>}
+                  {getCategoryCount(cat.id) === 0 && <span className="text-[8px] text-slate-600 font-bold uppercase tracking-tighter">Vazio</span>}
                 </div>
               </div>
             ))}
@@ -349,35 +347,35 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
         </div>
 
         <div className="mt-auto pt-4 flex flex-col gap-3">
-          <button onClick={openConfirmation} disabled={isConfirming || isProcessing || !isSpecial || currentEnvAssigned.length === 0} className={`w-full py-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${!isSpecial || currentEnvAssigned.length === 0 ? 'bg-slate-800 text-slate-600' : showSuccess ? 'bg-emerald-600 text-white shadow-[0_0_15px_rgba(16,185,129,0.2)]' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 active:scale-95'}`}>
-            {(isConfirming || isProcessing) ? "Processando..." : showSuccess ? "Sincronizado!" : "Sincronizar Dia"}
+          <button onClick={openConfirmation} disabled={isConfirming || isProcessing || !isSpecial || currentEnvAssigned.length === 0} className={`w-full py-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${!isSpecial || currentEnvAssigned.length === 0 ? 'bg-slate-800 text-slate-600' : showSuccess ? 'bg-emerald-600 text-white shadow-lg' : 'bg-indigo-600 text-white shadow-lg active:scale-95'}`}>
+            {(isConfirming || isProcessing) ? "Salvando..." : showSuccess ? "Sincronizado!" : "Atualizar Global"}
           </button>
           
           {dayHasAnyAssignment && (
             <button onClick={handleDeleteDaySchedule} disabled={isConfirming || isProcessing} className="w-full py-3 border border-rose-500/30 text-rose-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/10 transition-all flex items-center justify-center gap-2">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-              {isProcessing ? "Excluindo..." : "Excluir Todo o Dia"}
+              Excluir Dia Inteiro
             </button>
           )}
         </div>
       </div>
 
       {/* PAINEL DIREITO: BANCO DE COLABORADORES */}
-      <div className="lg:col-span-8 bg-slate-900 p-8 rounded-3xl border border-slate-800 flex flex-col h-fit">
+      <div className="lg:col-span-8 bg-slate-900 p-8 rounded-3xl border border-slate-800 flex flex-col h-fit shadow-2xl">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 border-b border-slate-800 pb-6 gap-4">
           <div>
-            <h3 className="text-slate-100 font-black text-lg uppercase tracking-widest">Banco de Colaboradores</h3>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Clique para adicionar ao ambiente selecionado</p>
+            <h3 className="text-slate-100 font-black text-lg uppercase tracking-widest">Banco Global</h3>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Selecione para incluir na escala compartilhada</p>
           </div>
           <div className="relative w-full md:w-64">
-             <input type="text" placeholder="BUSCAR NOME..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-[10px] font-black uppercase p-3 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-white pl-10 tracking-widest shadow-inner" />
+             <input type="text" placeholder="BUSCAR..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-[10px] font-black uppercase p-3 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-white pl-10 tracking-widest shadow-inner" />
              <svg className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           <div className="p-4 bg-slate-800/30 rounded-2xl border border-slate-800">
-            <p className="text-[9px] font-black text-slate-500 uppercase mb-3 flex items-center"><span className="w-2 h-2 bg-indigo-500 rounded-full mr-2"></span> Filtrar Categoria</p>
+            <p className="text-[9px] font-black text-slate-500 uppercase mb-3 flex items-center"><span className="w-2 h-2 bg-indigo-500 rounded-full mr-2"></span> Categorias</p>
             <div className="flex flex-wrap gap-1.5">
               {sortedCats.map(cat => (
                 <button key={cat.id} onClick={() => setSelectedCategories(prev => prev.includes(cat.id) ? prev.filter(i => i !== cat.id) : [...prev, cat.id])} className={`px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${selectedCategories.includes(cat.id) ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
@@ -387,7 +385,7 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
             </div>
           </div>
           <div className="p-4 bg-slate-800/30 rounded-2xl border border-slate-800">
-            <p className="text-[9px] font-black text-slate-500 uppercase mb-3 flex items-center"><span className="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span> Ambiente Base</p>
+            <p className="text-[9px] font-black text-slate-500 uppercase mb-3 flex items-center"><span className="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span> Ambientes Base</p>
             <div className="flex flex-wrap gap-1.5">
               {sortedEnvs.map(env => (
                 <button key={env.id} onClick={() => setSelectedEnvironments(prev => prev.includes(env.id) ? prev.filter(i => i !== env.id) : [...prev, env.id])} className={`px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${selectedEnvironments.includes(env.id) ? 'bg-emerald-600 border-emerald-400 text-white shadow-lg' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
@@ -399,13 +397,13 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
         </div>
 
         <div className="flex items-center gap-3 mb-6 p-1 bg-slate-800/50 rounded-2xl border border-slate-700 w-fit">
-           <span className="text-[8px] font-black text-slate-500 uppercase px-3">Modo Visual:</span>
+           <span className="text-[8px] font-black text-slate-500 uppercase px-3">Visual:</span>
            <button onClick={() => setCounterFilter('none')} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${counterFilter === 'none' ? 'bg-slate-700 text-white shadow-inner' : 'text-slate-500 hover:text-slate-300'}`}>Padrão</button>
            <button onClick={() => setCounterFilter('sunday')} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${counterFilter === 'sunday' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-500 hover:text-slate-300'}`}>Domingos</button>
            <button onClick={() => setCounterFilter('holiday')} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${counterFilter === 'holiday' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'text-slate-500 hover:text-slate-300'}`}>Feriados</button>
         </div>
 
-        <div className={`${(!isSpecial || isProcessing) ? 'opacity-20 pointer-events-none' : ''}`}>
+        <div className={`${(!isSpecial || isProcessing || isSilentProcessing) ? 'opacity-20 pointer-events-none' : ''}`}>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {employees
               .filter(e => searchTerm === '' || e.name.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -432,7 +430,7 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
                 }
 
                 return (
-                  <button key={e.id} onClick={() => !isUsedElsewhere && !isInactive && isSpecial && toggleEmployee(e.id)} disabled={isUsedElsewhere || isInactive || !isSpecial || isProcessing} className={`text-left p-4 rounded-2xl transition-all border group relative active:scale-95 ${isUsedHere ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg ring-2 ring-indigo-500/30' : isUsedElsewhere ? 'bg-slate-800/30 border-slate-700/30 opacity-40 cursor-not-allowed grayscale' : isInactive ? 'bg-slate-900 border-slate-800 border-dashed opacity-40 cursor-not-allowed grayscale' : 'bg-slate-800 border-slate-700 hover:border-indigo-500 hover:bg-slate-800/80 shadow-sm'}`}>
+                  <button key={e.id} onClick={() => !isUsedElsewhere && !isInactive && isSpecial && toggleEmployee(e.id)} disabled={isUsedElsewhere || isInactive || !isSpecial || isProcessing || isSilentProcessing} className={`text-left p-4 rounded-2xl transition-all border group relative active:scale-95 ${isUsedHere ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg ring-2 ring-indigo-500/30' : isUsedElsewhere ? 'bg-slate-800/30 border-slate-700/30 opacity-40 cursor-not-allowed grayscale' : isInactive ? 'bg-slate-900 border-slate-800 border-dashed opacity-40 cursor-not-allowed grayscale' : 'bg-slate-800 border-slate-700 hover:border-indigo-500 hover:bg-slate-800/80 shadow-sm'}`}>
                     <div className="flex justify-between items-start mb-2">
                       <span className="font-black text-sm truncate pr-2 uppercase tracking-tighter">{e.name}</span>
                       {isInactive && <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded-lg border ${e.status === 'Férias' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-rose-500/20 text-rose-400 border-rose-500/30'}`}>{e.status}</span>}

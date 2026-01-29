@@ -1,6 +1,6 @@
 
 {
-  "name": "EscalaPro V0.1.3 - Gestão Completa",
-  "description": "Sistema administrativo de escala com gestão de ambientes, categorias, funcionários e lógica de priorização inteligente.",
+  "name": "EscalaPro V0.1.7 - Gestão Compartilhada",
+  "description": "Sistema administrativo de escala com banco de dados global compartilhado entre todos os usuários autenticados.",
   "requestFramePermissions": []
 }

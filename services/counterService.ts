@@ -3,12 +3,11 @@ import { supabase } from '../lib/supabase';
 import { Employee, Holiday } from '../types';
 
 /**
- * Função de Auditoria: Sincroniza metadados de feriados e reconstrói os contadores 
- * baseando-se no histórico real de assignments e no estado atual dos feriados.
+ * Função de Auditoria: Reconstrói os contadores baseando-se no histórico global de assignments.
  */
-export const recalculateAllEmployeeCounters = async (employees: Employee[], holidays: Holiday[]) => {
+export const recalculateAllEmployeeCounters = async (userId: string, employees: Employee[], holidays: Holiday[]) => {
   try {
-    // 1. Sincronizar a tabela de 'schedules' com os 'holidays' atuais
+    // 1. Sincronizar a tabela de 'schedules' com os 'holidays' globais
     const { data: currentSchedules, error: schErr } = await supabase
       .from('schedules')
       .select('*');
@@ -26,23 +25,23 @@ export const recalculateAllEmployeeCounters = async (employees: Employee[], holi
             is_holiday: shouldBeHoliday,
             holiday_name: holidayName || null,
             is_sunday: isSundayDate
-          }).eq('date', sch.date);
+          })
+          .eq('date', sch.date);
         }
       }
     }
 
-    // 2. Buscar TODAS as escalas oficiais e assignments
+    // 2. Buscar TODAS as escalas oficiais e assignments sem filtro de usuário (Compartilhado)
     const [schedulesRes, assignmentsRes] = await Promise.all([
       supabase.from('schedules').select('date, is_sunday, is_holiday').order('date', { ascending: true }),
       supabase.from('assignments').select('date, employee_id')
     ]);
 
-    if (schedulesRes.error || assignmentsRes.error) throw new Error("Falha ao buscar histórico para recalculo.");
+    if (schedulesRes.error || assignmentsRes.error) throw new Error("Falha ao buscar histórico compartilhado.");
 
     const allSchedules = schedulesRes.data || [];
     const allAssignments = assignmentsRes.data || [];
 
-    // Agrupar atribuições por funcionário
     const assignmentsByEmployee = new Map<string, Set<string>>();
     allAssignments.forEach(a => {
       if (!assignmentsByEmployee.has(a.employee_id)) {
@@ -58,12 +57,12 @@ export const recalculateAllEmployeeCounters = async (employees: Employee[], holi
 
     const updatedEmployees = employees.map(emp => {
       let lastSun: string | null = null;
-      let sunOff = 10; // Inicia em 10 conforme solicitado (Prioridade Base)
+      let sunOff = 10; 
       let sunTotal = 0;
       let sunCurrentYear = 0;
 
       let lastHol: string | null = null;
-      let holOff = 10; // Inicia em 10 conforme solicitado (Prioridade Base)
+      let holOff = 10; 
       let holTotal = 0;
       let holCurrentYear = 0;
 
@@ -77,22 +76,22 @@ export const recalculateAllEmployeeCounters = async (employees: Employee[], holi
         if (sch.is_sunday) {
           if (worked) {
             lastSun = sch.date;
-            sunOff = 0; // Se trabalhou, contador de folgas vai para 0
+            sunOff = 0; 
             sunTotal++;
             if (isTargetYear) sunCurrentYear++;
           } else {
-            sunOff++; // Se não trabalhou, incrementa a prioridade
+            sunOff++; 
           }
         }
 
         if (sch.is_holiday) {
           if (worked) {
             lastHol = sch.date;
-            holOff = 0; // Se trabalhou, contador de folgas vai para 0
+            holOff = 0; 
             holTotal++;
             if (isTargetYear) holCurrentYear++;
           } else {
-            holOff++; // Se não trabalhou, incrementa a prioridade
+            holOff++; 
           }
         }
       });
@@ -110,7 +109,6 @@ export const recalculateAllEmployeeCounters = async (employees: Employee[], holi
       };
     });
 
-    // 4. Salvar atualizações em lote para evitar gargalos
     for (const emp of updatedEmployees) {
       await supabase.from('employees').update({
         last_sunday_worked: emp.lastSundayWorked,
@@ -121,12 +119,13 @@ export const recalculateAllEmployeeCounters = async (employees: Employee[], holi
         consecutive_holidays_off: emp.consecutiveHolidaysOff,
         total_holidays_worked: emp.totalHolidaysWorked,
         holidays_worked_current_year: emp.holidaysWorkedCurrentYear
-      }).eq('id', emp.id);
+      })
+      .eq('id', emp.id);
     }
 
     return updatedEmployees;
   } catch (err) {
-    console.error("Erro crítico no Recalculo de Auditoria:", err);
+    console.error("Erro crítico no recalculo global:", err);
     throw err;
   }
 };

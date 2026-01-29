@@ -20,61 +20,58 @@ const App: React.FC = () => {
     try {
       setDbError(null);
       
-      const fetchTable = async (table: string, query: any = supabase.from(table).select('*')) => {
+      const fetchTable = async (table: string, query: any) => {
         try {
           const { data, error } = await query;
           if (error) {
-            console.warn(`Aviso: Falha ao carregar tabela "${table}":`, error.message);
-            return { data: null, error };
+            console.error(`Erro na tabela "${table}":`, error);
+            return { data: [], error: error.message };
           }
-          return { data, error: null };
+          return { data: data || [], error: null };
         } catch (e) {
-          console.error(`Erro crítico na tabela "${table}":`, e);
-          return { data: null, error: e };
+          console.error(`Erro inesperado na tabela "${table}":`, e);
+          return { data: [], error: "Falha de rede ou conexão." };
         }
       };
 
-      const [cats, envs, emps, hols, schs, assigns] = await Promise.all([
-        fetchTable('categories', supabase.from('categories').select('*').order('name', { ascending: true })),
-        fetchTable('environments', supabase.from('environments').select('*').order('name', { ascending: false })),
-        fetchTable('employees', supabase.from('employees').select('*').order('name', { ascending: true })),
-        fetchTable('holidays', supabase.from('holidays').select('*').order('date')),
-        fetchTable('schedules', supabase.from('schedules').select('*')),
-        fetchTable('assignments', supabase.from('assignments').select('*'))
-      ]);
+      // Removido o filtro .eq('user_id', userId) para permitir dados compartilhados
+      const catsRes = await fetchTable('categories', supabase.from('categories').select('*').order('name', { ascending: true }));
+      const envsRes = await fetchTable('environments', supabase.from('environments').select('*').order('name', { ascending: false }));
+      const empsRes = await fetchTable('employees', supabase.from('employees').select('*').order('name', { ascending: true }));
+      const holsRes = await fetchTable('holidays', supabase.from('holidays').select('*').order('date'));
+      const schsRes = await fetchTable('schedules', supabase.from('schedules').select('*'));
+      const assignsRes = await fetchTable('assignments', supabase.from('assignments').select('*'));
 
-      if (cats.error || envs.error || emps.error) {
-        setDbError(`Erro de conexão. Verifique sua conta.`);
+      if (catsRes.error || envsRes.error || empsRes.error) {
+        setDbError("Algumas informações não puderam ser carregadas totalmente.");
       }
 
-      if (cats.data) setCategories(cats.data);
-      if (envs.data) setEnvironments(envs.data);
+      setCategories(catsRes.data);
+      setEnvironments(envsRes.data);
       
-      if (emps.data) {
-        setEmployees(emps.data.map((e: any) => ({
-          ...e,
-          id: e.id,
-          name: e.name || 'Sem Nome',
-          categoryId: e.category_id,
-          environmentId: e.environment_id,
-          status: e.status || 'Ativo',
-          role: e.role,
-          lastSundayWorked: e.last_sunday_worked,
-          consecutiveSundaysOff: e.consecutive_sundays_off ?? 0,
-          totalSundaysWorked: e.total_sundays_worked ?? 0,
-          sundaysWorkedCurrentYear: e.sundays_worked_current_year ?? 0,
-          lastHolidayWorked: e.last_holiday_worked,
-          consecutiveHolidaysOff: e.consecutive_holidays_off ?? 0,
-          totalHolidaysWorked: e.total_holidays_worked ?? 0,
-          holidaysWorkedCurrentYear: e.holidays_worked_current_year ?? 0
-        })));
-      }
+      setEmployees(empsRes.data.map((e: any) => ({
+        ...e,
+        id: e.id,
+        name: e.name || 'Sem Nome',
+        categoryId: e.category_id,
+        environmentId: e.environment_id,
+        status: e.status || 'Ativo',
+        role: e.role,
+        lastSundayWorked: e.last_sunday_worked,
+        consecutiveSundaysOff: e.consecutive_sundays_off ?? 0,
+        totalSundaysWorked: e.total_sundays_worked ?? 0,
+        sundaysWorkedCurrentYear: e.sundays_worked_current_year ?? 0,
+        lastHolidayWorked: e.last_holiday_worked,
+        consecutiveHolidaysOff: e.consecutive_holidays_off ?? 0,
+        totalHolidaysWorked: e.total_holidays_worked ?? 0,
+        holidaysWorkedCurrentYear: e.holidays_worked_current_year ?? 0
+      })));
       
-      if (hols.data) setHolidays(hols.data);
+      setHolidays(holsRes.data);
       
-      if (schs.data) {
-        const safeAssignments = assigns.data || [];
-        const builtSchedules: DaySchedule[] = schs.data.map((s: any) => {
+      if (schsRes.data.length > 0) {
+        const safeAssignments = assignsRes.data || [];
+        const builtSchedules: DaySchedule[] = schsRes.data.map((s: any) => {
           const dayAssigns = safeAssignments.filter((a: any) => a.date === s.date);
           const envGrouped: Record<string, string[]> = {};
           
@@ -103,7 +100,7 @@ const App: React.FC = () => {
 
     } catch (error: any) {
       console.error("Erro crítico ao carregar dados:", error);
-      setDbError("Falha ao conectar com o servidor.");
+      setDbError("Erro de comunicação com o banco de dados.");
     } finally {
       setLoading(false);
     }
@@ -118,7 +115,10 @@ const App: React.FC = () => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      if (session) fetchData();
+      if (session) {
+        setLoading(true);
+        fetchData();
+      }
       else {
         setCategories([]);
         setEnvironments([]);
@@ -141,7 +141,7 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
           <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-slate-400 font-bold animate-pulse text-xs uppercase tracking-widest">Sincronizando Seus Dados...</p>
+          <p className="text-slate-400 font-bold animate-pulse text-xs uppercase tracking-widest">Carregando EscalaPro...</p>
         </div>
       </div>
     );
@@ -163,7 +163,7 @@ const App: React.FC = () => {
           {session && (
             <div className="flex items-center gap-4">
               <div className="hidden sm:block text-right">
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest leading-none">Acesso Restrito</p>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest leading-none">Acesso Compartilhado</p>
                 <p className="text-[10px] font-bold text-slate-300 truncate max-w-[150px]">{session.user.email}</p>
               </div>
               <button 
@@ -181,6 +181,18 @@ const App: React.FC = () => {
       </nav>
 
       <main className="max-w-7xl mx-auto p-4 md:p-8">
+        {dbError && (
+          <div className="mb-8 bg-amber-500/10 border border-amber-500/30 p-4 rounded-2xl flex items-start gap-4">
+             <div className="p-2 bg-amber-500 rounded-lg text-white">
+               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+             </div>
+             <div>
+               <h4 className="text-sm font-black uppercase text-amber-500 tracking-widest">Aviso de Sincronização</h4>
+               <p className="text-xs text-amber-300 font-medium mt-1">{dbError}</p>
+             </div>
+          </div>
+        )}
+
         {!session ? (
           <AdminLogin />
         ) : (
@@ -191,13 +203,13 @@ const App: React.FC = () => {
             employees={employees} setEmployees={setEmployees}
             holidays={holidays} setHolidays={setHolidays}
             schedules={schedules} setSchedules={setSchedules}
-            refreshData={fetchData}
+            refreshData={() => fetchData()}
           />
         )}
       </main>
       
       <footer className="mt-20 border-t border-slate-900 py-10 text-center">
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-700">ESCALAPRO V0.1.3 - DESENV: WENNEDYS NUNES</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-700">ESCALAPRO V0.1.7 - BANCO DE DADOS COMPARTILHADO</p>
       </footer>
     </div>
   );
