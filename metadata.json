@@ -1,6 +1,6 @@
 
 {
-  "name": "EscalaPro V0.1.7 - Gestão Compartilhada",
-  "description": "Sistema administrativo de escala com banco de dados global compartilhado entre todos os usuários autenticados.",
+  "name": "EscalaPro V0.1.8 - Gestão Global",
+  "description": "Sistema administrativo de escala com banco de dados global compartilhado. Otimizado para exclusão em massa e integridade de dados entre equipes.",
   "requestFramePermissions": []
 }

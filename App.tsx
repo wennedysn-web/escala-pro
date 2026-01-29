@@ -34,7 +34,6 @@ const App: React.FC = () => {
         }
       };
 
-      // Removido o filtro .eq('user_id', userId) para permitir dados compartilhados
       const catsRes = await fetchTable('categories', supabase.from('categories').select('*').order('name', { ascending: true }));
       const envsRes = await fetchTable('environments', supabase.from('environments').select('*').order('name', { ascending: false }));
       const empsRes = await fetchTable('employees', supabase.from('employees').select('*').order('name', { ascending: true }));
@@ -43,7 +42,7 @@ const App: React.FC = () => {
       const assignsRes = await fetchTable('assignments', supabase.from('assignments').select('*'));
 
       if (catsRes.error || envsRes.error || empsRes.error) {
-        setDbError("Algumas informações não puderam ser carregadas totalmente.");
+        setDbError("Sincronização parcial: Alguns dados não puderam ser recuperados.");
       }
 
       setCategories(catsRes.data);
@@ -100,7 +99,7 @@ const App: React.FC = () => {
 
     } catch (error: any) {
       console.error("Erro crítico ao carregar dados:", error);
-      setDbError("Erro de comunicação com o banco de dados.");
+      setDbError("Erro fatal de conexão com o banco de dados.");
     } finally {
       setLoading(false);
     }
@@ -141,7 +140,7 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
           <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-slate-400 font-bold animate-pulse text-xs uppercase tracking-widest">Carregando EscalaPro...</p>
+          <p className="text-slate-400 font-bold animate-pulse text-xs uppercase tracking-widest">Iniciando Ambiente Global...</p>
         </div>
       </div>
     );
@@ -163,7 +162,7 @@ const App: React.FC = () => {
           {session && (
             <div className="flex items-center gap-4">
               <div className="hidden sm:block text-right">
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest leading-none">Acesso Compartilhado</p>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest leading-none">Acesso Global</p>
                 <p className="text-[10px] font-bold text-slate-300 truncate max-w-[150px]">{session.user.email}</p>
               </div>
               <button 
@@ -182,12 +181,12 @@ const App: React.FC = () => {
 
       <main className="max-w-7xl mx-auto p-4 md:p-8">
         {dbError && (
-          <div className="mb-8 bg-amber-500/10 border border-amber-500/30 p-4 rounded-2xl flex items-start gap-4">
+          <div className="mb-8 bg-amber-500/10 border border-amber-500/30 p-4 rounded-2xl flex items-start gap-4 animate-in fade-in">
              <div className="p-2 bg-amber-500 rounded-lg text-white">
                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
              </div>
              <div>
-               <h4 className="text-sm font-black uppercase text-amber-500 tracking-widest">Aviso de Sincronização</h4>
+               <h4 className="text-sm font-black uppercase text-amber-500 tracking-widest">Alerta do Sistema</h4>
                <p className="text-xs text-amber-300 font-medium mt-1">{dbError}</p>
              </div>
           </div>
@@ -209,7 +208,7 @@ const App: React.FC = () => {
       </main>
       
       <footer className="mt-20 border-t border-slate-900 py-10 text-center">
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-700">ESCALAPRO V0.1.7 - BANCO DE DADOS COMPARTILHADO</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-700">ESCALAPRO V0.1.8 - BANCO DE DADOS GLOBAL COMPARTILHADO</p>
       </footer>
     </div>
   );

@@ -12,7 +12,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </div>
-            <h1 className="text-xl font-black uppercase tracking-tighter">EscalaPro <span className="text-indigo-500 text-xs font-medium ml-1">V0.1.7</span></h1>
+            <h1 className="text-xl font-black uppercase tracking-tighter">EscalaPro <span className="text-indigo-500 text-xs font-medium ml-1">V0.1.8</span></h1>
           </div>
           <nav className="hidden md:flex space-x-8 text-[10px] font-black uppercase tracking-widest text-slate-500">
             <a href="#" className="hover:text-indigo-400 transition-colors">Dashboard</a>
@@ -25,7 +25,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         {children}
       </main>
       <footer className="bg-slate-950 border-t border-slate-900 py-10 text-center">
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-700">ESCALAPRO V0.1.7 - DESENV: WENNEDYS NUNES</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-700">ESCALAPRO V0.1.8 - DESENV: WENNEDYS NUNES</p>
       </footer>
     </div>
   );
