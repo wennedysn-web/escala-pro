@@ -52,31 +52,16 @@ export const generateSchedule = (
 
       let candidates = pool.filter(e => {
         const lastWorked = isSun ? e.lastSundayWorked : e.lastHolidayWorked;
-        return lastWorked !== lastDate;
+        return lastWorked !== dateStr; // Evita escala dupla no mesmo dia se chamado repetidamente
       });
-
-      if (candidates.length < Object.values(requirements).reduce((a, b) => a + b, 0)) {
-        candidates = pool;
-      }
 
       candidates.sort((a, b) => {
         if (isSun) {
-          // New logic: prioritize those who NEVER worked
-          const aNever = !a.lastSundayWorked;
-          const bNever = !b.lastSundayWorked;
-          if (aNever && !bNever) return -1;
-          if (!aNever && bNever) return 1;
-
           if (b.consecutiveSundaysOff !== a.consecutiveSundaysOff) {
             return b.consecutiveSundaysOff - a.consecutiveSundaysOff;
           }
           return (a.lastSundayWorked || '') > (b.lastSundayWorked || '') ? 1 : -1;
         } else {
-          const aNeverHol = !a.lastHolidayWorked;
-          const bNeverHol = !b.lastHolidayWorked;
-          if (aNeverHol && !bNeverHol) return -1;
-          if (!aNeverHol && bNeverHol) return 1;
-
           if (b.consecutiveHolidaysOff !== a.consecutiveHolidaysOff) {
             return b.consecutiveHolidaysOff - a.consecutiveHolidaysOff;
           }

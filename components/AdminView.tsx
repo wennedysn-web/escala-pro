@@ -116,10 +116,10 @@ const AdminView: React.FC<Props> = (props) => {
       } else {
         res = await supabase.from('employees').insert([{
           ...payload,
-          consecutive_sundays_off: 0,
+          consecutive_sundays_off: 10, // Começa com 10 para prioridade máxima
           total_sundays_worked: 0,
           sundays_worked_current_year: 0,
-          consecutive_holidays_off: 0,
+          consecutive_holidays_off: 10, // Começa com 10 para prioridade máxima
           total_holidays_worked: 0,
           holidays_worked_current_year: 0
         }]);

@@ -58,12 +58,12 @@ export const recalculateAllEmployeeCounters = async (employees: Employee[], holi
 
     const updatedEmployees = employees.map(emp => {
       let lastSun: string | null = null;
-      let sunOff = 0;
+      let sunOff = 10; // Inicia em 10 conforme solicitado (Prioridade Base)
       let sunTotal = 0;
       let sunCurrentYear = 0;
 
       let lastHol: string | null = null;
-      let holOff = 0;
+      let holOff = 10; // Inicia em 10 conforme solicitado (Prioridade Base)
       let holTotal = 0;
       let holCurrentYear = 0;
 
@@ -77,22 +77,22 @@ export const recalculateAllEmployeeCounters = async (employees: Employee[], holi
         if (sch.is_sunday) {
           if (worked) {
             lastSun = sch.date;
-            sunOff = 0;
+            sunOff = 0; // Se trabalhou, contador de folgas vai para 0
             sunTotal++;
             if (isTargetYear) sunCurrentYear++;
           } else {
-            sunOff++;
+            sunOff++; // Se não trabalhou, incrementa a prioridade
           }
         }
 
         if (sch.is_holiday) {
           if (worked) {
             lastHol = sch.date;
-            holOff = 0;
+            holOff = 0; // Se trabalhou, contador de folgas vai para 0
             holTotal++;
             if (isTargetYear) holCurrentYear++;
           } else {
-            holOff++;
+            holOff++; // Se não trabalhou, incrementa a prioridade
           }
         }
       });
