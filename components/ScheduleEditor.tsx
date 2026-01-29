@@ -20,7 +20,7 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
   const [activeDate, setActiveDate] = useState(getLocalDateString());
   const [activeEnv, setActiveEnv] = useState(environments[0]?.id || '');
   const [isConfirming, setIsConfirming] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   
   const [isChecklistOpen, setIsChecklistOpen] = useState(false);
@@ -50,17 +50,27 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
     if (!isSpecial) return;
 
     const isAlreadyAssigned = currentEnvAssigned.includes(empId);
+    setIsProcessing(true);
     
     try {
       if (isAlreadyAssigned) {
-        // Remover vínculo
-        await supabase.from('assignments')
+        // 1. Remover vínculo no Supabase
+        const { error: delError } = await supabase.from('assignments')
           .delete()
           .match({ date: activeDate, environment_id: activeEnv, employee_id: empId, user_id: userId });
         
-        // Verificar se era o último colaborador do dia inteiro para remover o registro de schedule
-        const allAssignedOnDay = assignments.flatMap(a => a.employeeIds);
-        if (allAssignedOnDay.length <= 1) {
+        if (delError) throw delError;
+
+        // 2. Verificar se o dia ficou órfão (sem mais ninguém escalado)
+        // Precisamos conferir no DB se ainda existe algum assignment para esse dia
+        const { data: remaining, error: checkError } = await supabase.from('assignments')
+          .select('id')
+          .eq('date', activeDate)
+          .eq('user_id', userId)
+          .limit(1);
+
+        if (!checkError && (!remaining || remaining.length === 0)) {
+           // Se não sobrou ninguém, remove o registro mestre de 'schedules'
            await supabase.from('schedules').delete().match({ date: activeDate, user_id: userId });
         }
       } else {
@@ -74,26 +84,34 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
         }, { onConflict: 'date,user_id' });
 
         // Adicionar novo vínculo
-        await supabase.from('assignments').insert([{
+        const { error: insError } = await supabase.from('assignments').insert([{
           date: activeDate,
           environment_id: activeEnv,
           employee_id: empId,
           user_id: userId
         }]);
+
+        if (insError) throw insError;
         setSearchTerm('');
       }
       
-      // Atualizar localmente primeiro para resposta instantânea na UI
+      // 3. Recalcular contadores IMEDIATAMENTE após alteração
+      await recalculateAllEmployeeCounters(employees, holidays);
+      
+      // 4. Sincronizar UI
       await refreshData();
     } catch (err: any) {
       console.error("Erro na sincronização:", err);
+      alert("Falha ao salvar alteração. Verifique sua conexão.");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const handleDeleteDaySchedule = async () => {
     if (!confirm(`TEM CERTEZA? Isso excluirá permanentemente TODA a escala de todos os ambientes no dia ${formatDateDisplay(activeDate)}.`)) return;
 
-    setIsDeleting(true);
+    setIsProcessing(true);
     try {
       // 1. Deletar todos os assignments do dia
       const { error: err1 } = await supabase.from('assignments').delete().match({ date: activeDate, user_id: userId });
@@ -103,17 +121,18 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
       const { error: err2 } = await supabase.from('schedules').delete().match({ date: activeDate, user_id: userId });
       if (err2) throw err2;
 
-      // 3. Atualizar dados e recalcular contadores
-      await refreshData();
+      // 3. Recalcular contadores (agora esses funcionários terão ganhado 1 dia de folga)
       await recalculateAllEmployeeCounters(employees, holidays);
+      
+      // 4. Atualizar dados na UI
       await refreshData();
       
-      alert("Escala do dia removida e contadores sincronizados.");
+      alert("Escala do dia removida com sucesso.");
     } catch (err) {
       console.error("Erro ao excluir escala:", err);
       alert("Erro ao excluir escala. Verifique sua conexão.");
     } finally {
-      setIsDeleting(false);
+      setIsProcessing(false);
     }
   };
 
@@ -193,13 +212,17 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 relative">
-      {isConfirming && (
+      {(isConfirming || isProcessing) && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
           <div className="bg-slate-900 border border-slate-800 p-10 rounded-3xl shadow-2xl flex flex-col items-center space-y-6 max-w-sm text-center">
-            <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin shadow-[0_0_15px_rgba(16,185,129,0.3)]"></div>
+            <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin shadow-[0_0_15px_rgba(99,102,241,0.3)]"></div>
             <div className="space-y-2">
-              <h3 className="text-xl font-black uppercase tracking-tighter text-white">Sincronizando Dia</h3>
-              <p className="text-slate-500 text-xs font-bold uppercase tracking-widest leading-relaxed">Efetivando escala e atualizando seus contadores...</p>
+              <h3 className="text-xl font-black uppercase tracking-tighter text-white">
+                {isProcessing ? "Processando Alteração..." : "Sincronizando Dia"}
+              </h3>
+              <p className="text-slate-500 text-xs font-bold uppercase tracking-widest leading-relaxed">
+                {isProcessing ? "Gravando exclusão e atualizando contadores..." : "Efetivando escala e atualizando seus contadores..."}
+              </p>
             </div>
           </div>
         </div>
@@ -321,14 +344,14 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
         </div>
 
         <div className="mt-auto pt-4 flex flex-col gap-3">
-          <button onClick={openConfirmation} disabled={isConfirming || !isSpecial || currentEnvAssigned.length === 0} className={`w-full py-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${!isSpecial || currentEnvAssigned.length === 0 ? 'bg-slate-800 text-slate-600' : showSuccess ? 'bg-emerald-600 text-white shadow-[0_0_15px_rgba(16,185,129,0.2)]' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 active:scale-95'}`}>
-            {isConfirming ? "Sincronizando..." : showSuccess ? "Sincronizado!" : "Sincronizar Dia"}
+          <button onClick={openConfirmation} disabled={isConfirming || isProcessing || !isSpecial || currentEnvAssigned.length === 0} className={`w-full py-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${!isSpecial || currentEnvAssigned.length === 0 ? 'bg-slate-800 text-slate-600' : showSuccess ? 'bg-emerald-600 text-white shadow-[0_0_15px_rgba(16,185,129,0.2)]' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 active:scale-95'}`}>
+            {(isConfirming || isProcessing) ? "Processando..." : showSuccess ? "Sincronizado!" : "Sincronizar Dia"}
           </button>
           
           {dayHasAnyAssignment && (
-            <button onClick={handleDeleteDaySchedule} disabled={isDeleting} className="w-full py-3 border border-rose-500/30 text-rose-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/10 transition-all flex items-center justify-center gap-2">
+            <button onClick={handleDeleteDaySchedule} disabled={isConfirming || isProcessing} className="w-full py-3 border border-rose-500/30 text-rose-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/10 transition-all flex items-center justify-center gap-2">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-              {isDeleting ? "Excluindo..." : "Excluir Todo o Dia"}
+              {isProcessing ? "Excluindo..." : "Excluir Todo o Dia"}
             </button>
           )}
         </div>
@@ -377,7 +400,7 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
            <button onClick={() => setCounterFilter('holiday')} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${counterFilter === 'holiday' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'text-slate-500 hover:text-slate-300'}`}>Feriados</button>
         </div>
 
-        <div className={`${!isSpecial ? 'opacity-20 pointer-events-none' : ''}`}>
+        <div className={`${(!isSpecial || isProcessing) ? 'opacity-20 pointer-events-none' : ''}`}>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {employees
               .filter(e => searchTerm === '' || e.name.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -404,7 +427,7 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
                 }
 
                 return (
-                  <button key={e.id} onClick={() => !isUsedElsewhere && !isInactive && isSpecial && toggleEmployee(e.id)} disabled={isUsedElsewhere || isInactive || !isSpecial} className={`text-left p-4 rounded-2xl transition-all border group relative active:scale-95 ${isUsedHere ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg ring-2 ring-indigo-500/30' : isUsedElsewhere ? 'bg-slate-800/30 border-slate-700/30 opacity-40 cursor-not-allowed grayscale' : isInactive ? 'bg-slate-900 border-slate-800 border-dashed opacity-40 cursor-not-allowed grayscale' : 'bg-slate-800 border-slate-700 hover:border-indigo-500 hover:bg-slate-800/80 shadow-sm'}`}>
+                  <button key={e.id} onClick={() => !isUsedElsewhere && !isInactive && isSpecial && toggleEmployee(e.id)} disabled={isUsedElsewhere || isInactive || !isSpecial || isProcessing} className={`text-left p-4 rounded-2xl transition-all border group relative active:scale-95 ${isUsedHere ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg ring-2 ring-indigo-500/30' : isUsedElsewhere ? 'bg-slate-800/30 border-slate-700/30 opacity-40 cursor-not-allowed grayscale' : isInactive ? 'bg-slate-900 border-slate-800 border-dashed opacity-40 cursor-not-allowed grayscale' : 'bg-slate-800 border-slate-700 hover:border-indigo-500 hover:bg-slate-800/80 shadow-sm'}`}>
                     <div className="flex justify-between items-start mb-2">
                       <span className="font-black text-sm truncate pr-2 uppercase tracking-tighter">{e.name}</span>
                       {isInactive && <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded-lg border ${e.status === 'Férias' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-rose-500/20 text-rose-400 border-rose-500/30'}`}>{e.status}</span>}

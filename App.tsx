@@ -44,7 +44,6 @@ const App: React.FC = () => {
       ]);
 
       if (cats.error || envs.error || emps.error) {
-        const criticalError = cats.error?.message || envs.error?.message || emps.error?.message;
         setDbError(`Erro de conexão. Verifique sua conta.`);
       }
 
@@ -181,26 +180,6 @@ const App: React.FC = () => {
         </div>
       </nav>
 
-      {dbError && (
-        <div className="max-w-7xl mx-auto px-4 pt-8">
-          <div className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <svg className="w-6 h-6 text-rose-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-              <div className="text-left">
-                <p className="text-rose-400 font-bold text-sm">Problema detectado.</p>
-                <p className="text-rose-500/70 text-xs font-medium">{dbError}</p>
-              </div>
-            </div>
-            <button 
-              onClick={() => fetchData()}
-              className="px-4 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap"
-            >
-              Tentar Novamente
-            </button>
-          </div>
-        </div>
-      )}
-
       <main className="max-w-7xl mx-auto p-4 md:p-8">
         {!session ? (
           <AdminLogin />
@@ -218,7 +197,7 @@ const App: React.FC = () => {
       </main>
       
       <footer className="mt-20 border-t border-slate-900 py-10 text-center">
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-700">ESCALAPRO V0.1.1 - DESENV: WENNEDYS NUNES</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-700">ESCALAPRO V0.1.2 - DESENV: WENNEDYS NUNES</p>
       </footer>
     </div>
   );
