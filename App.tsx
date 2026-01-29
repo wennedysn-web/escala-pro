@@ -218,7 +218,7 @@ const App: React.FC = () => {
       </main>
       
       <footer className="mt-20 border-t border-slate-900 py-10 text-center">
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-700">ESCALAPRO - DESENV: WENNEDYS NUNES</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-700">ESCALAPRO V0.1.1 - DESENV: WENNEDYS NUNES</p>
       </footer>
     </div>
   );
