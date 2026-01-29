@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Employee, Category, Environment, DaySchedule, Holiday } from '../types';
 import { formatDateDisplay, isSunday, getLocalDateString } from '../utils/dateUtils';
 import { supabase } from '../lib/supabase';
@@ -53,18 +53,27 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
     
     try {
       if (isAlreadyAssigned) {
+        // Remover vínculo
         await supabase.from('assignments')
           .delete()
           .match({ date: activeDate, environment_id: activeEnv, employee_id: empId, user_id: userId });
+        
+        // Verificar se era o último colaborador do dia inteiro para remover o registro de schedule
+        const allAssignedOnDay = assignments.flatMap(a => a.employeeIds);
+        if (allAssignedOnDay.length <= 1) {
+           await supabase.from('schedules').delete().match({ date: activeDate, user_id: userId });
+        }
       } else {
+        // Adicionar escala mestre se não existir
         await supabase.from('schedules').upsert({
           date: activeDate,
           is_sunday: isDaySunday,
           is_holiday: !!holidayInfo,
           holiday_name: holidayInfo?.name || null,
           user_id: userId
-        });
+        }, { onConflict: 'date,user_id' });
 
+        // Adicionar novo vínculo
         await supabase.from('assignments').insert([{
           date: activeDate,
           environment_id: activeEnv,
@@ -73,6 +82,8 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
         }]);
         setSearchTerm('');
       }
+      
+      // Atualizar localmente primeiro para resposta instantânea na UI
       await refreshData();
     } catch (err: any) {
       console.error("Erro na sincronização:", err);
@@ -80,18 +91,27 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
   };
 
   const handleDeleteDaySchedule = async () => {
-    if (!confirm(`Tem certeza que deseja EXCLUIR TODA a escala do dia ${formatDateDisplay(activeDate)}?`)) return;
+    if (!confirm(`TEM CERTEZA? Isso excluirá permanentemente TODA a escala de todos os ambientes no dia ${formatDateDisplay(activeDate)}.`)) return;
 
     setIsDeleting(true);
     try {
-      await supabase.from('assignments').delete().match({ date: activeDate, user_id: userId });
-      await supabase.from('schedules').delete().match({ date: activeDate, user_id: userId });
+      // 1. Deletar todos os assignments do dia
+      const { error: err1 } = await supabase.from('assignments').delete().match({ date: activeDate, user_id: userId });
+      if (err1) throw err1;
+
+      // 2. Deletar o registro de schedule do dia
+      const { error: err2 } = await supabase.from('schedules').delete().match({ date: activeDate, user_id: userId });
+      if (err2) throw err2;
+
+      // 3. Atualizar dados e recalcular contadores
+      await refreshData();
       await recalculateAllEmployeeCounters(employees, holidays);
       await refreshData();
-      alert("Escala do dia removida com sucesso.");
+      
+      alert("Escala do dia removida e contadores sincronizados.");
     } catch (err) {
       console.error("Erro ao excluir escala:", err);
-      alert("Erro ao excluir escala.");
+      alert("Erro ao excluir escala. Verifique sua conexão.");
     } finally {
       setIsDeleting(false);
     }
@@ -100,7 +120,7 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
   const openConfirmation = () => {
     if (!isSpecial) return;
     if (currentEnvAssigned.length === 0) {
-      alert("Selecione ao menos um colaborador.");
+      alert("Selecione ao menos um colaborador para este ambiente.");
       return;
     }
     
@@ -121,6 +141,7 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
     setIsChecklistOpen(false);
     
     try {
+      // Salva estado final e força recalculo de tudo
       await recalculateAllEmployeeCounters(employees, holidays);
       await refreshData();
       
@@ -128,6 +149,7 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
       setTimeout(() => setShowSuccess(false), 2000);
     } catch (err) {
       console.error("Erro ao efetivar escala:", err);
+      alert("Erro ao sincronizar contadores finais.");
     } finally {
       setIsConfirming(false);
     }
@@ -198,7 +220,7 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
               </button>
             </div>
 
-            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar text-white">
               <label className={`flex items-start p-4 rounded-2xl border transition-all cursor-pointer group ${checkedItems['date'] ? 'bg-indigo-600/10 border-indigo-500/50' : 'bg-slate-800 border-slate-700 hover:border-slate-500'}`}>
                 <input type="checkbox" checked={checkedItems['date'] || false} onChange={() => toggleCheckItem('date')} className="mt-1 w-5 h-5 rounded border-slate-700 text-indigo-600 focus:ring-indigo-500 bg-slate-900" />
                 <div className="ml-4">
@@ -247,19 +269,20 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
         </div>
       )}
 
-      <div className="lg:col-span-4 bg-slate-900 p-6 rounded-3xl border border-slate-800 flex flex-col h-fit">
+      {/* PAINEL ESQUERDO: SELEÇÃO E VISUALIZAÇÃO DO DIA */}
+      <div className="lg:col-span-4 bg-slate-900 p-6 rounded-3xl border border-slate-800 flex flex-col h-fit sticky top-24">
         <div className="flex flex-col mb-6 gap-4 border-b border-slate-800 pb-6">
           <div className="space-y-1">
             <h3 className="font-black text-xl text-slate-100">{formatDateDisplay(activeDate)}</h3>
             <div className="flex flex-wrap gap-2">
-              {isDaySunday && <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-1 rounded">DOMINGO</span>}
-              {holidayInfo && <span className="text-[10px] bg-rose-500/20 text-rose-400 px-2 py-1 rounded uppercase">{holidayInfo.name}</span>}
+              {isDaySunday && <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-1 rounded font-black tracking-widest">DOMINGO</span>}
+              {holidayInfo && <span className="text-[10px] bg-rose-500/20 text-rose-400 px-2 py-1 rounded uppercase font-black tracking-widest">{holidayInfo.name}</span>}
               {!isSpecial && <span className="text-[10px] bg-slate-700 text-slate-400 px-2 py-1 rounded uppercase font-bold tracking-widest">Dia Comum</span>}
             </div>
           </div>
           <div className="flex flex-col gap-2">
-            <input type="date" value={activeDate} onChange={e => setActiveDate(e.target.value)} className="w-full p-2.5 bg-slate-800 rounded-xl text-xs text-white border border-slate-700 outline-none" />
-            <select value={activeEnv} onChange={e => setActiveEnv(e.target.value)} className="w-full p-2.5 bg-slate-800 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none">
+            <input type="date" value={activeDate} onChange={e => setActiveDate(e.target.value)} className="w-full p-2.5 bg-slate-800 rounded-xl text-xs text-white border border-slate-700 outline-none focus:ring-1 focus:ring-indigo-500" />
+            <select value={activeEnv} onChange={e => setActiveEnv(e.target.value)} className="w-full p-2.5 bg-slate-800 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:ring-1 focus:ring-indigo-500">
               {sortedEnvs.map(env => <option key={env.id} value={env.id}>{env.name}</option>)}
             </select>
           </div>
@@ -268,27 +291,29 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
         <div className="mb-8">
           {!isSpecial && (
             <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl mb-4">
-              <p className="text-[10px] text-amber-400 font-bold text-center">Edição apenas em Domingos ou Feriados.</p>
+              <p className="text-[10px] text-amber-400 font-bold text-center uppercase tracking-widest">Edição permitida apenas em Domingos ou Feriados.</p>
             </div>
           )}
 
           <div className={`space-y-4 ${!isSpecial ? 'opacity-30 pointer-events-none' : ''}`}>
+             <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-1">Escalados para {currentEnvName}</p>
             {sortedCats.map(cat => (
-              <div key={cat.id} className="p-4 bg-slate-800/40 rounded-2xl border border-slate-800">
+              <div key={cat.id} className="p-4 bg-slate-800/40 rounded-2xl border border-slate-800 group hover:border-slate-700 transition-colors">
                 <div className="flex justify-between items-center mb-3">
                   <h4 className="font-black text-slate-400 text-[9px] uppercase tracking-widest">{cat.name}</h4>
-                  <span className="text-[10px] font-black bg-indigo-600 text-white w-6 h-6 flex items-center justify-center rounded-lg">{getCategoryCount(cat.id)}</span>
+                  <span className="text-[10px] font-black bg-indigo-600 text-white w-6 h-6 flex items-center justify-center rounded-lg shadow-inner">{getCategoryCount(cat.id)}</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {currentEnvAssigned
                     .map(id => employees.find(e => e.id === id))
                     .filter(e => e?.categoryId === cat.id)
                     .map(e => e && (
-                      <div key={e.id} className="px-2 py-1 bg-slate-800 border border-indigo-500/30 text-indigo-300 text-[10px] font-bold rounded-lg flex items-center">
-                        <span className="truncate max-w-[80px]">{e.name}</span>
-                        <button onClick={() => toggleEmployee(e.id)} className="ml-1.5 text-rose-500 font-black hover:scale-125 transition">&times;</button>
+                      <div key={e.id} className="px-2.5 py-1.5 bg-slate-800 border border-indigo-500/40 text-indigo-100 text-[10px] font-bold rounded-xl flex items-center shadow-md animate-in zoom-in-95 duration-200">
+                        <span className="truncate max-w-[100px]">{e.name}</span>
+                        <button onClick={() => toggleEmployee(e.id)} className="ml-2 text-rose-500 font-black hover:scale-125 transition-transform" title="Remover da escala">&times;</button>
                       </div>
                     ))}
+                  {getCategoryCount(cat.id) === 0 && <span className="text-[8px] text-slate-600 font-bold uppercase tracking-tighter">Ninguém escalado</span>}
                 </div>
               </div>
             ))}
@@ -296,44 +321,48 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
         </div>
 
         <div className="mt-auto pt-4 flex flex-col gap-3">
-          <button onClick={openConfirmation} disabled={isConfirming || !isSpecial || currentEnvAssigned.length === 0} className={`w-full py-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${!isSpecial || currentEnvAssigned.length === 0 ? 'bg-slate-800 text-slate-600' : showSuccess ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white shadow-lg'}`}>
+          <button onClick={openConfirmation} disabled={isConfirming || !isSpecial || currentEnvAssigned.length === 0} className={`w-full py-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${!isSpecial || currentEnvAssigned.length === 0 ? 'bg-slate-800 text-slate-600' : showSuccess ? 'bg-emerald-600 text-white shadow-[0_0_15px_rgba(16,185,129,0.2)]' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 active:scale-95'}`}>
             {isConfirming ? "Sincronizando..." : showSuccess ? "Sincronizado!" : "Sincronizar Dia"}
           </button>
           
           {dayHasAnyAssignment && (
             <button onClick={handleDeleteDaySchedule} disabled={isDeleting} className="w-full py-3 border border-rose-500/30 text-rose-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/10 transition-all flex items-center justify-center gap-2">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-              Excluir Dia
+              {isDeleting ? "Excluindo..." : "Excluir Todo o Dia"}
             </button>
           )}
         </div>
       </div>
 
+      {/* PAINEL DIREITO: BANCO DE COLABORADORES */}
       <div className="lg:col-span-8 bg-slate-900 p-8 rounded-3xl border border-slate-800 flex flex-col h-fit">
-        <div className="flex justify-between items-center mb-8 border-b border-slate-800 pb-6">
-          <h3 className="text-slate-100 font-black text-lg uppercase tracking-widest">Colaboradores</h3>
-          <div className="relative w-64">
-             <input type="text" placeholder="Pesquisar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-[10px] font-black uppercase p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-white pl-9 tracking-widest" />
-             <svg className="w-4 h-4 text-slate-500 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 border-b border-slate-800 pb-6 gap-4">
+          <div>
+            <h3 className="text-slate-100 font-black text-lg uppercase tracking-widest">Banco de Colaboradores</h3>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Clique para adicionar ao ambiente selecionado</p>
+          </div>
+          <div className="relative w-full md:w-64">
+             <input type="text" placeholder="BUSCAR NOME..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-slate-800 border border-slate-700 text-[10px] font-black uppercase p-3 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-white pl-10 tracking-widest shadow-inner" />
+             <svg className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          <div className="p-3 bg-slate-800/30 rounded-2xl border border-slate-800">
-            <p className="text-[9px] font-black text-slate-500 uppercase mb-2">Filtrar Categoria</p>
+          <div className="p-4 bg-slate-800/30 rounded-2xl border border-slate-800">
+            <p className="text-[9px] font-black text-slate-500 uppercase mb-3 flex items-center"><span className="w-2 h-2 bg-indigo-500 rounded-full mr-2"></span> Filtrar Categoria</p>
             <div className="flex flex-wrap gap-1.5">
               {sortedCats.map(cat => (
-                <button key={cat.id} onClick={() => setSelectedCategories(prev => prev.includes(cat.id) ? prev.filter(i => i !== cat.id) : [...prev, cat.id])} className={`px-2 py-1 rounded-lg text-[9px] font-bold border transition-all ${selectedCategories.includes(cat.id) ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>
+                <button key={cat.id} onClick={() => setSelectedCategories(prev => prev.includes(cat.id) ? prev.filter(i => i !== cat.id) : [...prev, cat.id])} className={`px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${selectedCategories.includes(cat.id) ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
                   {cat.name}
                 </button>
               ))}
             </div>
           </div>
-          <div className="p-3 bg-slate-800/30 rounded-2xl border border-slate-800">
-            <p className="text-[9px] font-black text-slate-500 uppercase mb-2">Ambiente Base</p>
+          <div className="p-4 bg-slate-800/30 rounded-2xl border border-slate-800">
+            <p className="text-[9px] font-black text-slate-500 uppercase mb-3 flex items-center"><span className="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span> Ambiente Base</p>
             <div className="flex flex-wrap gap-1.5">
               {sortedEnvs.map(env => (
-                <button key={env.id} onClick={() => setSelectedEnvironments(prev => prev.includes(env.id) ? prev.filter(i => i !== env.id) : [...prev, env.id])} className={`px-2 py-1 rounded-lg text-[9px] font-bold border transition-all ${selectedEnvironments.includes(env.id) ? 'bg-emerald-600 border-emerald-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>
+                <button key={env.id} onClick={() => setSelectedEnvironments(prev => prev.includes(env.id) ? prev.filter(i => i !== env.id) : [...prev, env.id])} className={`px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${selectedEnvironments.includes(env.id) ? 'bg-emerald-600 border-emerald-400 text-white shadow-lg' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}>
                   {env.name}
                 </button>
               ))}
@@ -341,10 +370,11 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
           </div>
         </div>
 
-        <div className="flex gap-2 mb-6 p-1 bg-slate-800/50 rounded-2xl border border-slate-700 w-fit">
-           <button onClick={() => setCounterFilter('none')} className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${counterFilter === 'none' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'}`}>Nenhum</button>
-           <button onClick={() => setCounterFilter('sunday')} className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${counterFilter === 'sunday' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-500 hover:text-slate-300'}`}>Domingos</button>
-           <button onClick={() => setCounterFilter('holiday')} className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${counterFilter === 'holiday' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'text-slate-500 hover:text-slate-300'}`}>Feriados</button>
+        <div className="flex items-center gap-3 mb-6 p-1 bg-slate-800/50 rounded-2xl border border-slate-700 w-fit">
+           <span className="text-[8px] font-black text-slate-500 uppercase px-3">Modo Visual:</span>
+           <button onClick={() => setCounterFilter('none')} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${counterFilter === 'none' ? 'bg-slate-700 text-white shadow-inner' : 'text-slate-500 hover:text-slate-300'}`}>Padrão</button>
+           <button onClick={() => setCounterFilter('sunday')} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${counterFilter === 'sunday' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-500 hover:text-slate-300'}`}>Domingos</button>
+           <button onClick={() => setCounterFilter('holiday')} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${counterFilter === 'holiday' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'text-slate-500 hover:text-slate-300'}`}>Feriados</button>
         </div>
 
         <div className={`${!isSpecial ? 'opacity-20 pointer-events-none' : ''}`}>
@@ -374,14 +404,14 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
                 }
 
                 return (
-                  <button key={e.id} onClick={() => !isUsedElsewhere && !isInactive && isSpecial && toggleEmployee(e.id)} disabled={isUsedElsewhere || isInactive || !isSpecial} className={`text-left p-4 rounded-2xl transition-all border group relative ${isUsedHere ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg' : isUsedElsewhere ? 'bg-slate-800/30 border-slate-700/30 opacity-40 cursor-not-allowed grayscale' : isInactive ? 'bg-slate-900 border-slate-800 border-dashed opacity-40 cursor-not-allowed grayscale' : 'bg-slate-800 border-slate-700 hover:border-indigo-500 hover:bg-slate-800/80 shadow-sm'}`}>
+                  <button key={e.id} onClick={() => !isUsedElsewhere && !isInactive && isSpecial && toggleEmployee(e.id)} disabled={isUsedElsewhere || isInactive || !isSpecial} className={`text-left p-4 rounded-2xl transition-all border group relative active:scale-95 ${isUsedHere ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg ring-2 ring-indigo-500/30' : isUsedElsewhere ? 'bg-slate-800/30 border-slate-700/30 opacity-40 cursor-not-allowed grayscale' : isInactive ? 'bg-slate-900 border-slate-800 border-dashed opacity-40 cursor-not-allowed grayscale' : 'bg-slate-800 border-slate-700 hover:border-indigo-500 hover:bg-slate-800/80 shadow-sm'}`}>
                     <div className="flex justify-between items-start mb-2">
-                      <span className="font-black text-sm truncate pr-2">{e.name}</span>
+                      <span className="font-black text-sm truncate pr-2 uppercase tracking-tighter">{e.name}</span>
                       {isInactive && <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded-lg border ${e.status === 'Férias' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-rose-500/20 text-rose-400 border-rose-500/30'}`}>{e.status}</span>}
                     </div>
-                    <div className="flex gap-2">
-                      {counterFilter !== 'none' && <div className={`flex items-center px-1.5 py-0.5 rounded-lg border text-[9px] font-black ${badgeClasses}`}><span className="opacity-50 mr-1">{badgePrefix}</span> {formatCounter(badgeVal)}</div>}
-                      {counterFilter === 'none' && isDaySunday && <div className="text-[8px] font-black text-slate-500 uppercase">Dom: {e.consecutiveSundaysOff}</div>}
+                    <div className="flex items-center gap-2">
+                      {counterFilter !== 'none' && <div className={`flex items-center px-2 py-0.5 rounded-lg border text-[9px] font-black ${badgeClasses}`}><span className="opacity-50 mr-1">{badgePrefix}</span> {formatCounter(badgeVal)}</div>}
+                      {counterFilter === 'none' && isDaySunday && <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest bg-slate-900/50 px-2 py-0.5 rounded-lg">Folg. Dom: {e.consecutiveSundaysOff}</div>}
                     </div>
                   </button>
                 );
