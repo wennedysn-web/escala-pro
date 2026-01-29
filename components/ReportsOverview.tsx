@@ -178,7 +178,7 @@ const ReportsOverview: React.FC<Props> = ({ employees, environments, categories,
         {/* Cabeçalho do Relatório */}
         <div className="text-center border-b-2 border-black pb-2 mb-3">
           <h1 className="text-lg font-black uppercase tracking-tighter text-black">Resumo Administrativo do Sistema</h1>
-          <p className="text-[8px] font-bold mt-0.5 uppercase text-black">EscalaPro V0.1.2 &bull; Relatório emitido em {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}</p>
+          <p className="text-[8px] font-bold mt-0.5 uppercase text-black">EscalaPro V0.1.3 &bull; Relatório emitido em {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}</p>
         </div>
 
         {/* Linha única de Quadros Estatísticos */}

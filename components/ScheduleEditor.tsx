@@ -50,6 +50,8 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
     if (!isSpecial) return;
 
     const isAlreadyAssigned = currentEnvAssigned.includes(empId);
+    
+    // Forçar exibição do processamento IMEDIATAMENTE
     setIsProcessing(true);
     
     try {
@@ -57,12 +59,16 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
         // 1. Remover vínculo no Supabase
         const { error: delError } = await supabase.from('assignments')
           .delete()
-          .match({ date: activeDate, environment_id: activeEnv, employee_id: empId, user_id: userId });
+          .match({ 
+            date: activeDate, 
+            environment_id: activeEnv, 
+            employee_id: empId, 
+            user_id: userId 
+          });
         
         if (delError) throw delError;
 
-        // 2. Verificar se o dia ficou órfão (sem mais ninguém escalado)
-        // Precisamos conferir no DB se ainda existe algum assignment para esse dia
+        // 2. Verificar se o dia ficou órfão (sem mais ninguém escalado em NENHUM ambiente)
         const { data: remaining, error: checkError } = await supabase.from('assignments')
           .select('id')
           .eq('date', activeDate)
@@ -70,7 +76,7 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
           .limit(1);
 
         if (!checkError && (!remaining || remaining.length === 0)) {
-           // Se não sobrou ninguém, remove o registro mestre de 'schedules'
+           // Se não sobrou ninguém no dia inteiro, remove o registro mestre de 'schedules'
            await supabase.from('schedules').delete().match({ date: activeDate, user_id: userId });
         }
       } else {
@@ -95,7 +101,7 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
         setSearchTerm('');
       }
       
-      // 3. Recalcular contadores IMEDIATAMENTE após alteração
+      // 3. Recalcular contadores IMEDIATAMENTE após qualquer alteração
       await recalculateAllEmployeeCounters(employees, holidays);
       
       // 4. Sincronizar UI
@@ -121,7 +127,7 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
       const { error: err2 } = await supabase.from('schedules').delete().match({ date: activeDate, user_id: userId });
       if (err2) throw err2;
 
-      // 3. Recalcular contadores (agora esses funcionários terão ganhado 1 dia de folga)
+      // 3. Recalcular contadores
       await recalculateAllEmployeeCounters(employees, holidays);
       
       // 4. Atualizar dados na UI
@@ -160,7 +166,6 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
     setIsChecklistOpen(false);
     
     try {
-      // Salva estado final e força recalculo de tudo
       await recalculateAllEmployeeCounters(employees, holidays);
       await refreshData();
       
@@ -218,10 +223,10 @@ const ScheduleEditor: React.FC<Props> = ({ userId, employees, categories, enviro
             <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin shadow-[0_0_15px_rgba(99,102,241,0.3)]"></div>
             <div className="space-y-2">
               <h3 className="text-xl font-black uppercase tracking-tighter text-white">
-                {isProcessing ? "Processando Alteração..." : "Sincronizando Dia"}
+                {isProcessing ? "Processando..." : "Sincronizando Dia"}
               </h3>
               <p className="text-slate-500 text-xs font-bold uppercase tracking-widest leading-relaxed">
-                {isProcessing ? "Gravando exclusão e atualizando contadores..." : "Efetivando escala e atualizando seus contadores..."}
+                {isProcessing ? "Gravando alteração e atualizando contadores..." : "Efetivando escala e atualizando seus contadores..."}
               </p>
             </div>
           </div>
